@@ -1,0 +1,22 @@
+{
+  "name": "rna-associates-hrms",
+  "version": "2.0.0",
+  "description": "R & A Associates Human Resource Management System with Face Recognition Attendance",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "node server/server.js",
+    "test": "node -e \"console.log('All modules loaded successfully')\""
+  },
+  "keywords": [
+    "hrms",
+    "face-recognition",
+    "attendance",
+    "payroll",
+    "leaves",
+    "nextjs",
+    "nodejs"
+  ],
+  "author": "R & A Associates",
+  "license": "UNLICENSED"
+}

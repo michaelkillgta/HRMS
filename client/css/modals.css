@@ -1,0 +1,84 @@
+/* Modals, Form Controls, Popups & Responsive Layout */
+.modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.45);
+  display: none; align-items: center; justify-content: center;
+  z-index: 200; backdrop-filter: blur(2px);
+  padding: 12px;
+}
+
+.modal-backdrop.show { display: flex; }
+
+.modal {
+  background: var(--card); border-radius: var(--radius);
+  width: 100%; max-width: min(560px, calc(100vw - 24px));
+  box-shadow: var(--shadow-lg);
+  overflow: hidden; max-height: calc(100vh - 24px) !important;
+  display: flex; flex-direction: column;
+}
+
+.modal-header {
+  padding: .75rem 1.1rem;
+  display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-header h3 { font-size: 1.1rem; font-weight: 600; }
+
+.modal-close {
+  background: none; border: none; font-size: 1.25rem;
+  color: var(--text-muted); cursor: pointer; padding: .25rem;
+  border-radius: 6px;
+}
+
+.modal-close:hover { background: var(--bg); color: var(--text); }
+
+.modal-body {
+  padding: 1rem 1.1rem;
+  overflow-y: auto; flex: 1;
+  max-height: calc(100vh - 120px);
+}
+
+.modal-footer {
+  padding: .6rem 1.1rem;
+  display: flex; justify-content: flex-end; gap: .75rem;
+  border-top: 1px solid var(--border); background: #f8fafc;
+}
+
+.form-group { margin-bottom: .65rem; }
+.form-group label { display: block; font-size: .78rem; font-weight: 500; margin-bottom: .2rem; color: var(--text); }
+
+.form-control {
+  width: 100%; padding: .45rem .7rem;
+  border: 1px solid var(--border); border-radius: 8px;
+  font-size: .83rem; color: var(--text); outline: none;
+}
+
+.form-control:focus { border-color: var(--primary); }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: .65rem; }
+
+.modal-lg { max-width: min(920px, calc(100vw - 24px)) !important; }
+.modal-xl { max-width: min(1120px, calc(100vw - 24px)) !important; }
+.modal-fit { max-width: calc(100vw - 24px) !important; }
+
+/* Camera selfie preview inside attendance modal */
+#attSelfieVideo, #attSelfieCanvas, #attSelfieImg {
+  max-height: 180px; width: 100%; object-fit: cover; border-radius: 8px;
+}
+
+/* Print styling */
+@media print {
+  body * { visibility: hidden; }
+  #letterModal, #letterModal * { visibility: visible; }
+  #letterModal { position: absolute; left: 0; top: 0; width: 100%; background: none; }
+  #letterModal .modal { box-shadow: none; border: none; max-width: 100% !important; max-height: none !important; width: 100%; }
+  #letterModal .modal-header, #letterModal .modal-footer { display: none !important; }
+  #letterModal .modal-body { padding: 0 !important; overflow: visible !important; }
+  .letter-paper { border: none !important; padding: 10mm 15mm !important; }
+}
+
+@media (max-width: 640px) {
+  .modal { max-height: calc(100vh - 12px) !important; max-width: calc(100vw - 12px) !important; }
+  .modal-body { padding: .75rem; }
+  .form-row { grid-template-columns: 1fr; }
+}

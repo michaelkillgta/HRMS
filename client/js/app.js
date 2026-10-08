@@ -1,0 +1,4659 @@
+﻿
+    // ========== SHARED DATA SYNC (used when served by server.js; ignored when opened as a plain file) ==========
+    (function () {
+      if (location.protocol === 'file:') return;
+      const nSet = Storage.prototype.setItem, nDel = Storage.prototype.removeItem, mine = k => typeof k === 'string' && k.startsWith('hrms_');
+      const push = (m, k, v) => fetch('/api/state/' + k, { method: m, body: v }).catch(() => {});
+      function pull(sync) {
+        const x = new XMLHttpRequest(); x.open('GET', '/api/state', !sync);
+        const apply = () => {
+          if (x.status !== 200) return false;
+          const d = JSON.parse(x.responseText), keys = Object.keys(d); let changed = false;
+          if (!keys.length) { Object.keys(localStorage).filter(mine).forEach(k => push('PUT', k, localStorage.getItem(k))); return false; }   // first run: upload this browser's data
+          keys.forEach(k => { if (localStorage.getItem(k) !== d[k]) { nSet.call(localStorage, k, d[k]); changed = true; } });
+          Object.keys(localStorage).filter(mine).forEach(k => { if (!(k in d)) { nDel.call(localStorage, k); changed = true; } });
+          return changed;
+        };
+        if (sync) { try { x.send(); apply(); } catch (e) {} return; }
+        x.onload = () => { try { if (apply() && !document.querySelector('.modal-backdrop.show') && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || '') && typeof refreshCurrentPage === 'function' && session) refreshCurrentPage(); } catch (e) {} };
+        x.send();
+      }
+      pull(true);
+      Storage.prototype.setItem = function (k, v) { nSet.call(this, k, v); if (this === localStorage && mine(k)) push('PUT', k, v); };
+      Storage.prototype.removeItem = function (k) { nDel.call(this, k); if (this === localStorage && mine(k)) push('DELETE', k); };
+      setInterval(() => pull(false), 30000);
+    })();
+
+
+    // ========== INSTALLABLE APP (PWA) ==========
+    (function () {
+      if (location.protocol === 'https:' && 'serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+      let ev = null;
+      window.addEventListener('beforeinstallprompt', e => {
+        e.preventDefault(); ev = e;
+        if (matchMedia('(display-mode: standalone)').matches) return;
+        const b = document.createElement('button'); b.textContent = 'â¬‡ Install App';
+        b.style.cssText = 'position:fixed;right:14px;bottom:14px;z-index:9998;background:#2563eb;color:#fff;border:0;border-radius:999px;padding:.7rem 1.1rem;font-weight:600;box-shadow:0 6px 16px rgba(0,0,0,.25);cursor:pointer';
+        b.onclick = () => { ev.prompt(); ev.userChoice.finally(() => b.remove()); };
+        document.body.appendChild(b);
+      });
+    })();
+
+    // ========== STORAGE LAYER ==========
+    const STORAGE_KEYS = {
+      employees: 'hrms_employees',
+      leaves: 'hrms_leaves',
+      attendance: 'hrms_attendance',
+      activities: 'hrms_activities',
+      salaries: 'hrms_salaries',
+      payruns: 'hrms_payruns_v2',
+      ctc: 'hrms_ctc',
+      letters: 'hrms_letters',
+      resignations: 'hrms_resignations',
+      forwards: 'hrms_payforwards',
+      office: 'hrms_office',
+      holidays: 'hrms_holidays',
+      weekoff: 'hrms_weekoff',
+      departments: 'hrms_departments',
+      perfCycles: 'hrms_perf_cycles',
+      perfGoals: 'hrms_perf_goals',
+      perfReviews: 'hrms_perf_reviews',
+      recJobs: 'hrms_rec_jobs',
+      popups: 'hrms_popups',
+      service: 'hrms_service',
+      privs: 'hrms_privs',
+      payCfg: 'hrms_paycfg',
+      modules: 'hrms_modules',
+      modCfg: 'hrms_modcfg',
+      payouts: 'hrms_payouts',
+      otlog: 'hrms_ot',
+      fnf: 'hrms_fnf',
+      decl: 'hrms_tax_decl',
+      stat: 'hrms_stat',
+      bio: 'hrms_bio',
+      bioCfg: 'hrms_bio_cfg',
+      photos: 'hrms_photos',
+      geo: 'hrms_geofence',
+      selfies: 'hrms_selfies',
+      faceCfg: 'hrms_face_cfg',
+      faceRef: 'hrms_face_ref',
+      popupSeen: 'hrms_popup_seen',
+      popCfg: 'hrms_popup_cfg',
+      recCands: 'hrms_rec_cands',
+      designations: 'hrms_designations',
+      perms: 'hrms_permissions',
+      permPolicy: 'hrms_perm_policy',
+      odReqs: 'hrms_od_requests',
+    };
+
+    const AVATAR_COLORS = ['#2563eb','#7c3aed','#059669','#d97706','#dc2626','#0891b2','#4f46e5','#64748b','#db2777','#0d9488'];
+
+    function getInitials(name) {
+      return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+    }
+
+    function randomColor() {
+      return AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
+    }
+
+    function load(key) {
+      try {
+        const raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : null;
+      } catch { return null; }
+    }
+
+    function save(key, data) {
+      localStorage.setItem(key, JSON.stringify(data));
+    }
+
+    function uid() {
+      return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+    }
+
+    // Seed data if empty
+    function seedIfEmpty() {
+      if (!load(STORAGE_KEYS.employees)) {
+        const seedEmployees = [
+          { id: uid(), name: "Aisha Khan", email: "aisha.khan@company.com", dept: "Engineering", role: "Senior Developer", status: "active", phone: "+91 98765 11111", avatar: "AK", color: "#2563eb", createdAt: new Date().toISOString() },
+          { id: uid(), name: "Rahul Sharma", email: "rahul.sharma@company.com", dept: "Marketing", role: "Marketing Lead", status: "active", phone: "+91 98765 22222", avatar: "RS", color: "#7c3aed", createdAt: new Date().toISOString() },
+          { id: uid(), name: "Priya Patel", email: "priya.patel@company.com", dept: "Human Resources", role: "HR Manager", status: "on-leave", phone: "+91 98765 33333", avatar: "PP", color: "#059669", createdAt: new Date().toISOString() },
+          { id: uid(), name: "James Wilson", email: "james.wilson@company.com", dept: "Finance", role: "Accountant", status: "active", phone: "+91 98765 44444", avatar: "JW", color: "#d97706", createdAt: new Date().toISOString() },
+          { id: uid(), name: "Sneha Reddy", email: "sneha.reddy@company.com", dept: "Engineering", role: "UI/UX Designer", status: "probation", phone: "+91 98765 55555", avatar: "SR", color: "#dc2626", createdAt: new Date().toISOString() },
+          { id: uid(), name: "Michael Chen", email: "michael.chen@company.com", dept: "Sales", role: "Sales Executive", status: "active", phone: "+91 98765 66666", avatar: "MC", color: "#0891b2", createdAt: new Date().toISOString() },
+        ];
+        save(STORAGE_KEYS.employees, seedEmployees);
+
+        const seedLeaves = [
+          { id: uid(), empId: seedEmployees[0].id, type: "Casual Leave", from: "2026-10-05", to: "2026-10-07", reason: "Family function", status: "pending", createdAt: new Date().toISOString() },
+          { id: uid(), empId: seedEmployees[2].id, type: "Sick Leave", from: "2026-10-02", to: "2026-10-04", reason: "Fever", status: "pending", createdAt: new Date().toISOString() },
+          { id: uid(), empId: seedEmployees[5].id, type: "Annual Leave", from: "2026-10-10", to: "2026-10-14", reason: "Vacation", status: "pending", createdAt: new Date().toISOString() },
+        ];
+        save(STORAGE_KEYS.leaves, seedLeaves);
+        save(STORAGE_KEYS.attendance, []);
+        save(STORAGE_KEYS.activities, [
+          { id: uid(), text: "System initialized with sample data", time: new Date().toISOString(), color: "blue" }
+        ]);
+      }
+    }
+
+    // Data accessors
+    function getEmployees() { return load(STORAGE_KEYS.employees) || []; }
+    function getLeaves() { return load(STORAGE_KEYS.leaves) || []; }
+    function getAttendance() { return load(STORAGE_KEYS.attendance) || []; }
+    function getActivities() { return load(STORAGE_KEYS.activities) || []; }
+
+    function setEmployees(list) { save(STORAGE_KEYS.employees, list); }
+    function setLeaves(list) { save(STORAGE_KEYS.leaves, list); }
+    function setAttendance(list) { save(STORAGE_KEYS.attendance, list); }
+
+    function addActivity(text, color = 'blue') {
+      const acts = getActivities();
+      acts.unshift({ id: uid(), text, time: new Date().toISOString(), color });
+      if (acts.length > 50) acts.pop();
+      save(STORAGE_KEYS.activities, acts);
+    }
+
+    function findEmployee(id) {
+      return getEmployees().find(e => e.id === id);
+    }
+
+    // ========== HELPERS ==========
+    function statusBadge(status) {
+      const map = { active: "Active", "on-leave": "On Leave", inactive: "Inactive", probation: "Probation", pending: "Pending", approved: "Approved", rejected: "Rejected" };
+      return `<span class="badge ${status}">${map[status] || status}</span>`;
+    }
+
+    function formatDate(iso) {
+      if (!iso) return 'â€”';
+      const d = new Date(iso);
+      return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+    }
+
+    function timeAgo(iso) {
+      const diff = (Date.now() - new Date(iso).getTime()) / 1000;
+      if (diff < 60) return 'Just now';
+      if (diff < 3600) return Math.floor(diff / 60) + ' min ago';
+      if (diff < 86400) return Math.floor(diff / 3600) + ' hours ago';
+      return Math.floor(diff / 86400) + ' days ago';
+    }
+
+    function daysBetween(from, to) {
+      const a = new Date(from), b = new Date(to);
+      return Math.round((b - a) / 86400000) + 1;
+    }
+
+    function showToast(msg, type = '') {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = 'toast show' + (type ? ' ' + type : '');
+      setTimeout(() => t.classList.remove('show'), 2800);
+    }
+
+    function openModal(id) {
+      document.getElementById(id).classList.add('show');
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('show');
+    }
+
+    function updateLeaveBadge() {
+      const pending = getLeaves().filter(l => l.status === 'pending').length;
+      const badge = document.getElementById('leaveBadge');
+      badge.textContent = pending;
+      badge.style.display = pending > 0 ? 'inline-flex' : 'none';
+      if (typeof updateResignBadge === 'function') updateResignBadge();
+      if (typeof updateLateBadge === 'function') updateLateBadge();
+      if (typeof updatePermBadge === 'function') updatePermBadge();
+    }
+
+
+    // ========== EMPLOYEE PHOTOS ==========
+    let photoRaw = null, photoMap = {}, empPhotoNew;
+    function getPhotos() { const r = localStorage.getItem(STORAGE_KEYS.photos); if (r !== photoRaw) { photoRaw = r; try { photoMap = JSON.parse(r || '{}') || {}; } catch { photoMap = {}; } } return { ...photoMap }; }
+    function avImg(e) { if (!e) return '?'; const ph = (getPhotos(), photoMap)[e.id]; return ph ? `<img src="${ph}" alt="" />` : esc(e.avatar || '?'); }
+    function empPhotoShow(src, name) { document.getElementById('empPhotoPrev').innerHTML = src ? `<img src="${src}" style="width:100%;height:100%;object-fit:cover" />` : esc(getInitials(name || '') || '?'); }
+    function empPhotoInit(e) { empPhotoNew = undefined; document.getElementById('empPhotoFile').value = ''; empPhotoShow(e ? (getPhotos(), photoMap)[e.id] : '', e?.name); }
+    function empPhotoClear() { empPhotoNew = ''; document.getElementById('empPhotoFile').value = ''; empPhotoShow('', document.getElementById('empName').value); }
+    function empPhotoPick(input) {
+      const f = input.files[0]; if (!f) return;
+      if (!f.type.startsWith('image/')) { showToast('Choose an image file', 'error'); input.value = ''; return; }
+      const r = new FileReader();
+      r.onload = () => {
+        const im = new Image();
+        im.onload = () => {   // centre-crop to a 256px square so it stays small in browser storage
+          const side = Math.min(im.width, im.height), c = document.createElement('canvas'); c.width = c.height = 256;
+          c.getContext('2d').drawImage(im, (im.width - side) / 2, (im.height - side) / 2, side, side, 0, 0, 256, 256);
+          empPhotoNew = c.toDataURL('image/jpeg', .8); empPhotoShow(empPhotoNew);
+        };
+        im.src = r.result;
+      };
+      r.readAsDataURL(f);
+    }
+
+    // ========== EMPLOYEE CRUD ==========
+    function openAddEmployee() {
+      document.getElementById('empModalTitle').textContent = 'Add Employee';
+      document.getElementById('empForm').reset();
+      document.getElementById('empId').value = '';
+      document.getElementById('empCode').value = nextEmpCode();
+      document.getElementById('empDob').value = '1900-01-01';
+      fillEmpDeptOptions('');
+      fillEmpRoleOptions('');
+      document.getElementById('empDoj').value = '';
+      document.getElementById('empRelieving').value = '';
+      empPhotoInit(null);
+      openModal('empModal');
+    }
+
+    function openEditEmployee(id) {
+      const e = findEmployee(id);
+      if (!e) return;
+      document.getElementById('empModalTitle').textContent = 'Edit Employee';
+      document.getElementById('empId').value = e.id;
+      document.getElementById('empName').value = e.name;
+      document.getElementById('empCode').value = e.empCode || '';
+      document.getElementById('empDob').value = e.dob || '1900-01-01';
+      document.getElementById('empEmail').value = e.email;
+      fillEmpDeptOptions(e.dept || '');
+      fillEmpRoleOptions(e.role || '');
+      document.getElementById('empStatus').value = e.status;
+      document.getElementById('empPhone').value = e.phone || '';
+      document.getElementById('empDoj').value = e.doj || '';
+      document.getElementById('empRelieving').value = e.relievingDate || '';
+      empPhotoInit(e);
+      openModal('empModal');
+    }
+
+    function saveEmployee(ev) {
+      ev.preventDefault();
+      const id = document.getElementById('empId').value;
+      const name = document.getElementById('empName').value.trim();
+      const empCode = document.getElementById('empCode').value.trim().toUpperCase();
+      const dob = document.getElementById('empDob').value;
+      const email = document.getElementById('empEmail').value.trim();
+      const dept = document.getElementById('empDept').value;
+      const role = document.getElementById('empRole').value.trim();
+      const status = document.getElementById('empStatus').value;
+      const phone = document.getElementById('empPhone').value.trim();
+      const doj = document.getElementById('empDoj').value;
+      const relievingDate = document.getElementById('empRelieving').value;
+
+      if (doj && relievingDate && relievingDate < doj) {
+        showToast('Relieving date cannot be before the date of joining', 'error');
+        return;
+      }
+
+      let list = getEmployees();
+      if (list.some(e => e.id !== id && (e.empCode || '').toUpperCase() === empCode)) {
+        showToast('Employee ID already exists', 'error');
+        return;
+      }
+
+      if (id) {
+        const idx = list.findIndex(e => e.id === id);
+        if (idx === -1) return;
+        list[idx] = { ...list[idx], name, empCode, dob, email, dept, role, status, phone, doj, relievingDate, avatar: getInitials(name) };
+        addActivity(`Updated employee <strong>${name}</strong>`, 'blue');
+        showToast('Employee updated', 'success');
+      } else {
+        const emp = {
+          id: uid(), name, empCode, dob, email, dept, role, status, phone, doj, relievingDate,
+          avatar: getInitials(name), color: randomColor(),
+          createdAt: new Date().toISOString()
+        };
+        list.unshift(emp);
+        addActivity(`Added new employee <strong>${name}</strong>`, 'green');
+        showToast('Employee added', 'success');
+      }
+
+      setEmployees(list);
+      if (empPhotoNew !== undefined) { const m = getPhotos(), pid = id || list[0].id; if (empPhotoNew) m[pid] = empPhotoNew; else delete m[pid]; try { save(STORAGE_KEYS.photos, m); } catch { showToast('Photo too large for browser storage', 'error'); } }
+      closeModal('empModal');
+      refreshCurrentPage();
+    }
+
+    function deleteEmployee(id) {
+      const e = findEmployee(id);
+      if (!e) return;
+      if (!confirm(`Delete ${e.name}? This cannot be undone.`)) return;
+      setEmployees(getEmployees().filter(x => x.id !== id));
+      // also remove related leaves
+      setLeaves(getLeaves().filter(l => l.empId !== id));
+      { const m = getPhotos(); if (m[id]) { delete m[id]; save(STORAGE_KEYS.photos, m); } }
+      addActivity(`Deleted employee <strong>${e.name}</strong>`, 'red');
+      showToast('Employee deleted', 'success');
+      refreshCurrentPage();
+    }
+
+    // ========== LEAVE CRUD ==========
+    function openAddLeave() {
+      const sel = document.getElementById('leaveEmpId');
+      sel.innerHTML = getEmployees().filter(e => isHR() ? e.status !== 'inactive' : e.id === session.empId).map(e =>
+        `<option value="${e.id}">${esc(e.name)} (${esc(e.dept)})</option>`
+      ).join('');
+      sel.disabled = !isHR();
+      document.getElementById('leaveForm').reset();
+      document.getElementById('leaveFrom').value = new Date().toISOString().slice(0, 10);
+      openModal('leaveModal');
+    }
+
+    function saveLeave(ev) {
+      ev.preventDefault();
+      const empId = isHR() ? document.getElementById('leaveEmpId').value : session.empId;
+      const type = document.getElementById('leaveType').value;
+      const from = document.getElementById('leaveFrom').value;
+      const to = document.getElementById('leaveTo').value;
+      const reason = document.getElementById('leaveReason').value.trim();
+
+      if (new Date(to) < new Date(from)) {
+        showToast('To date must be after From date', 'error');
+        return;
+      }
+
+      const clash = getLeaves().some(l => l.empId === empId && l.status !== 'rejected' && l.from <= to && l.to >= from);
+      if (clash) {
+        showToast('You already have a request covering these dates', 'error');
+        return;
+      }
+
+      const leave = {
+        id: uid(), empId, type, from, to, reason,
+        status: 'pending', createdAt: new Date().toISOString()
+      };
+
+      const list = getLeaves();
+      list.unshift(leave);
+      setLeaves(list);
+      ensureLeaveLetter(leave.id, 'leave');
+
+      const emp = findEmployee(empId);
+      addActivity(`Leave request by <strong>${emp?.name || 'Unknown'}</strong> (${type})`, 'amber');
+      showToast(isHR() ? 'Leave request submitted' : 'Leave request sent to HR for approval', 'success');
+      closeModal('leaveModal');
+      updateLeaveBadge();
+      refreshCurrentPage();
+    }
+
+    function updateLeaveStatus(id, status) {
+      if (!isHR()) return;
+      const list = getLeaves();
+      const idx = list.findIndex(l => l.id === id);
+      if (idx === -1) return;
+      list[idx].status = status;
+      list[idx].decidedAt = new Date().toISOString();
+      setLeaves(list);
+      if (status === 'approved') ensureLeaveLetter(id, 'leave-approved');
+
+      const emp = findEmployee(list[idx].empId);
+      const action = status === 'approved' ? 'approved' : 'rejected';
+      addActivity(`Leave ${action} for <strong>${emp?.name || 'Unknown'}</strong>`, status === 'approved' ? 'green' : 'red');
+
+      // Update employee status if approved and dates cover today
+      if (status === 'approved') {
+        const today = new Date().toISOString().slice(0, 10);
+        if (list[idx].from <= today && list[idx].to >= today) {
+          const emps = getEmployees();
+          const eidx = emps.findIndex(e => e.id === list[idx].empId);
+          if (eidx !== -1) {
+            emps[eidx].status = 'on-leave';
+            setEmployees(emps);
+          }
+        }
+      }
+
+      showToast(`Leave ${action}`, 'success');
+      updateLeaveBadge();
+      refreshCurrentPage();
+    }
+
+    function deleteLeave(id) {
+      if (!isHR()) return;
+      if (!confirm('Delete this leave request?')) return;
+      setLeaves(getLeaves().filter(l => l.id !== id));
+      showToast('Leave request deleted', 'success');
+      updateLeaveBadge();
+      refreshCurrentPage();
+    }
+
+
+
+    // ========== OFFICE TIMINGS ==========
+    // Default: open 9:30 AM, close 6:30 PM, lunch 1:00-2:00 PM (8 working hours/day), Mon-Sat
+    const OFFICE_DEFAULT = { open: '09:30', close: '18:30', lunchStart: '13:00', lunchEnd: '14:00', grace: 15, half: 4, days: [1, 2, 3, 4, 5, 6] };
+    const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const hmToMin = t => { const m = /^(\d{1,2}):(\d{2})/.exec(t || ''); return m ? (+m[1]) * 60 + (+m[2]) : null; };
+    const minToHM = n => String(Math.floor(n / 60)).padStart(2, '0') + ':' + String(n % 60).padStart(2, '0');
+    const to12h = t => { const n = hmToMin(t); if (n == null) return ''; const h = Math.floor(n / 60), m = n % 60; return ((h % 12) || 12) + ':' + String(m).padStart(2, '0') + ' ' + (h < 12 ? 'AM' : 'PM'); };
+    const fmtDur = mins => Math.floor(mins / 60) + 'h ' + String(mins % 60).padStart(2, '0') + 'm';
+
+    function officeCfg() {
+      let c = {};
+      try { c = JSON.parse(localStorage.getItem(STORAGE_KEYS.office) || '{}') || {}; } catch (e) {}
+      const o = Object.assign({}, OFFICE_DEFAULT, c);
+      if (!Array.isArray(o.days) || !o.days.length) o.days = OFFICE_DEFAULT.days;
+      o.openMin = hmToMin(o.open); o.closeMin = hmToMin(o.close);
+      o.lunchStartMin = hmToMin(o.lunchStart); o.lunchEndMin = hmToMin(o.lunchEnd);
+      o.dailyMin = (o.closeMin - o.openMin) - (o.lunchEndMin - o.lunchStartMin);
+      return o;
+    }
+
+    // Worked minutes between in and out, minus the part that overlaps the lunch break
+    function officeNetMin(a, b) {
+      const o = officeCfg();
+      const overlap = Math.max(0, Math.min(b, o.lunchEndMin) - Math.max(a, o.lunchStartMin));
+      return Math.max(0, (b - a) - overlap);
+    }
+
+    // Status from punch times using Office Timings. b may be null (single punch).
+    function officeClassify(a, b) {
+      const o = officeCfg();
+      const late = a > o.openMin + o.grace;
+      if (b == null || b - a < 30) return { status: late ? 'late' : 'present', note: 'Single punch (no out time)' };
+      const net = officeNetMin(a, b);
+      if (net / 60 < o.half) return { status: 'half-day', note: 'Worked ' + fmtDur(net) + ' (excl. lunch)' };
+      const early = b < o.closeMin - o.grace;
+      return { status: late ? 'late' : 'present', note: early ? 'Early out by ' + fmtDur(o.closeMin - b) : '' };
+    }
+
+    function saveOffice() {
+      const g = id => document.getElementById(id).value;
+      const days = [...document.querySelectorAll('.off-day')].filter(c => c.checked).map(c => +c.value);
+      const c = { open: g('offOpen'), close: g('offClose'), lunchStart: g('offLs'), lunchEnd: g('offLe'),
+        grace: Math.max(0, parseInt(g('offGrace'), 10) || 0), half: parseFloat(g('offHalf')) || 4, days };
+      const [o, cl, ls, le] = [c.open, c.close, c.lunchStart, c.lunchEnd].map(hmToMin);
+      if ([o, cl, ls, le].some(v => v == null)) { showToast('Enter all four timings', 'error'); return; }
+      if (!(o < ls && ls < le && le < cl)) { showToast('Order must be: opening, lunch start, lunch end, closing', 'error'); return; }
+      if (!days.length) { showToast('Select at least one working day', 'error'); return; }
+      try { localStorage.setItem(STORAGE_KEYS.office, JSON.stringify(c)); } catch (e) {}
+      showToast('Office timings saved', 'success');
+      refreshCurrentPage();
+    }
+
+    function resetOffice() {
+      try { localStorage.removeItem(STORAGE_KEYS.office); } catch (e) {}
+      showToast('Office timings reset to default', 'success');
+      refreshCurrentPage();
+    }
+
+    function officeSummaryLine() {
+      const o = officeCfg();
+      return `${to12h(o.open)} â€“ ${to12h(o.close)}, lunch ${to12h(o.lunchStart)} â€“ ${to12h(o.lunchEnd)}, late after ${to12h(minToHM(o.openMin + o.grace))}, early out before ${to12h(minToHM(o.closeMin - o.grace))}, half day below ${o.half} h`;
+    }
+
+    function renderOfficeCard() {
+      const o = officeCfg();
+      const weekly = o.dailyMin * o.days.length;
+      const lunchMin = o.lunchEndMin - o.lunchStartMin;
+      const issues = [];
+      if (o.dailyMin > 9 * 60) issues.push('Daily working time is above 9 hours.');
+      if (weekly > 48 * 60) issues.push('Weekly working time is above 48 hours.');
+      if (lunchMin < 60) issues.push('Rest interval is under 1 hour.');
+      const inp = 'width:100%; padding:.5rem .6rem; border:1px solid var(--border); border-radius:8px; font-family:inherit';
+      return `
+        <div class="card" style="max-width:560px; margin-bottom:1.25rem">
+          <div class="card-header"><h2>Office Timings</h2></div>
+          <div class="card-body" style="padding:1.5rem">
+            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:.75rem; margin-bottom:.75rem">
+              <div><label class="dept-tag">Opening</label><input type="time" id="offOpen" value="${o.open}" style="${inp}" /></div>
+              <div><label class="dept-tag">Closing</label><input type="time" id="offClose" value="${o.close}" style="${inp}" /></div>
+              <div><label class="dept-tag">Lunch starts</label><input type="time" id="offLs" value="${o.lunchStart}" style="${inp}" /></div>
+              <div><label class="dept-tag">Lunch ends</label><input type="time" id="offLe" value="${o.lunchEnd}" style="${inp}" /></div>
+              <div><label class="dept-tag">Grace period (min), in &amp; out</label><input type="number" id="offGrace" min="0" max="120" value="${o.grace}" style="${inp}" /></div>
+              <div><label class="dept-tag">Half day if net &lt; (hrs)</label><input type="number" id="offHalf" min="1" max="12" step="0.5" value="${o.half}" style="${inp}" /></div>
+            </div>
+            <div class="dept-tag" style="margin-bottom:.4rem">Working days</div>
+            <div style="display:flex; flex-wrap:wrap; gap:.75rem; margin-bottom:1rem; font-size:.85rem">
+              ${[1, 2, 3, 4, 5, 6, 0].map(d => `<label style="display:flex; gap:.3rem; align-items:center"><input type="checkbox" class="off-day" value="${d}" ${o.days.includes(d) ? 'checked' : ''} />${DAY_NAMES[d]}</label>`).join('')}
+            </div>
+            <div style="padding:.75rem 1rem; background:#f8fafc; border-radius:8px; font-size:.85rem; line-height:1.7; margin-bottom:.75rem">
+              Working time per day: <strong>${fmtDur(o.dailyMin)}</strong> (lunch ${fmtDur(lunchMin)} not counted)<br>
+              Working time per week: <strong>${fmtDur(weekly)}</strong> over ${o.days.length} day(s)
+            </div>
+            <div style="padding:.75rem 1rem; border-radius:8px; font-size:.8rem; line-height:1.6; margin-bottom:1rem; ${issues.length ? 'background:#fffbeb; color:#92400e' : 'background:#ecfdf5; color:#065f46'}">
+              ${issues.length ? issues.join(' ') + ' Check this against the state Shops &amp; Establishments rules before using it.' : 'Within the usual limits of 8 hours a day, 48 hours a week and a 1 hour rest interval. Confirm against the Shops &amp; Establishments rules that apply to your firm.'}
+            </div>
+            <div class="btn-group">
+              <button class="btn btn-primary" onclick="saveOffice()">Save Timings</button>
+              <button class="btn btn-secondary" onclick="resetOffice()">Reset to 9:30 AM â€“ 6:30 PM</button>
+            </div>
+            <p class="dept-tag" style="margin-top:.9rem; line-height:1.6">Used for Late / Half Day / Early out on the Attendance page, the eSSL import and the Mark Attendance form. Hours worked exclude the lunch break.</p>
+          </div>
+        </div>`;
+    }
+
+    // ========== HOLIDAY & WEEK-OFF RULES ==========
+    // Default rule: every Sunday + 2nd and 4th Saturday are weekly offs. National / Festival holidays are off on their fixed calendar dates.
+    // Optional holidays are shown on the calendar but are NOT automatic offs (employees choose them).
+    const WEEKOFF_DEFAULT = { sunday: true, sats: [2, 4] };
+    const HOL_TYPES = { national: 'National', festival: 'Festival', optional: 'Optional' };
+    const ISO = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    const ordinal = n => n + (['th', 'st', 'nd', 'rd', 'th', 'th'][n] || 'th');
+
+    function weekoffCfg() {
+      let c = {};
+      try { c = JSON.parse(localStorage.getItem(STORAGE_KEYS.weekoff) || '{}') || {}; } catch (e) {}
+      const o = Object.assign({}, WEEKOFF_DEFAULT, c);
+      if (!Array.isArray(o.sats)) o.sats = WEEKOFF_DEFAULT.sats;
+      return o;
+    }
+
+    function getHolidays() {
+      let l = load(STORAGE_KEYS.holidays);
+      if (!l) {
+        // Fixed-date national holidays repeat every year
+        l = [
+          { id: uid(), date: '2026-01-26', name: 'Republic Day', type: 'national', yearly: true },
+          { id: uid(), date: '2026-08-15', name: 'Independence Day', type: 'national', yearly: true },
+          { id: uid(), date: '2026-10-02', name: 'Gandhi Jayanti', type: 'national', yearly: true },
+        ];
+        save(STORAGE_KEYS.holidays, l);
+      }
+      return l;
+    }
+    function setHolidays(l) { save(STORAGE_KEYS.holidays, l); }
+
+    function holidayOn(iso) {
+      return getHolidays().find(h => h.date === iso || (h.yearly && h.date.slice(5) === iso.slice(5))) || null;
+    }
+
+    // { off: bool, kind: 'weekoff'|'national'|'festival'|'optional'|'', label: string } for a YYYY-MM-DD date
+    function dayOffInfo(iso) {
+      if (!iso) return { off: false, kind: '', label: '' };
+      const d = new Date(iso + 'T00:00:00');
+      const w = weekoffCfg(), dow = d.getDay();
+      const h = holidayOn(iso);
+      if (h && h.type !== 'optional') return { off: true, kind: h.type, label: h.name + ' (' + HOL_TYPES[h.type] + ' Holiday)' };
+      if (dow === 0 && w.sunday) return { off: true, kind: 'weekoff', label: 'Sunday â€“ Weekly Off' };
+      if (dow === 6 && w.sats.includes(Math.ceil(d.getDate() / 7))) return { off: true, kind: 'weekoff', label: ordinal(Math.ceil(d.getDate() / 7)) + ' Saturday â€“ Weekly Off' };
+      if (h) return { off: false, kind: 'optional', label: h.name + ' (Optional Holiday)' };
+      return { off: false, kind: '', label: '' };
+    }
+
+    function isWorkingDay(iso) {
+      const d = new Date(iso + 'T00:00:00');
+      return officeCfg().days.includes(d.getDay()) && !dayOffInfo(iso).off;
+    }
+
+    function weekoffSummary() {
+      const w = weekoffCfg(), parts = [];
+      if (w.sunday) parts.push('every Sunday');
+      if (w.sats.length) parts.push(w.sats.slice().sort().map(ordinal).join(' & ') + ' Saturday');
+      return (parts.join(' + ') || 'no weekly offs') + ', plus National / Festival holidays';
+    }
+
+    function saveWeekoff() {
+      const sats = [...document.querySelectorAll('.wo-sat')].filter(c => c.checked).map(c => +c.value);
+      const c = { sunday: document.getElementById('woSun').checked, sats };
+      try { localStorage.setItem(STORAGE_KEYS.weekoff, JSON.stringify(c)); } catch (e) {}
+      showToast('Week-off rules saved', 'success');
+      refreshCurrentPage();
+    }
+
+    function addHoliday() {
+      const date = document.getElementById('holDate').value;
+      const name = document.getElementById('holName').value.trim();
+      const type = document.getElementById('holType').value;
+      const yearly = document.getElementById('holYearly').checked;
+      if (!date || !name) { showToast('Enter the date and holiday name', 'error'); return; }
+      const l = getHolidays();
+      if (l.some(h => h.date === date && h.name.toLowerCase() === name.toLowerCase())) { showToast('This holiday is already in the calendar', 'error'); return; }
+      l.push({ id: uid(), date, name, type, yearly });
+      setHolidays(l);
+      addActivity(`Added ${HOL_TYPES[type]} holiday <strong>${esc(name)}</strong> on ${formatDate(date)}`, 'green');
+      showToast('Holiday added', 'success');
+      refreshCurrentPage();
+    }
+
+    function deleteHoliday(id) {
+      const l = getHolidays(), h = l.find(x => x.id === id);
+      if (!h || !confirm('Remove "' + h.name + '" from the holiday calendar?')) return;
+      setHolidays(l.filter(x => x.id !== id));
+      showToast('Holiday removed', 'success');
+      refreshCurrentPage();
+    }
+
+    function renderHolidayCard() {
+      const w = weekoffCfg();
+      const inp = 'padding:.5rem .6rem; border:1px solid var(--border); border-radius:8px; font-family:inherit';
+      const list = getHolidays().slice().sort((a, b) => a.date.slice(5).localeCompare(b.date.slice(5)) || a.date.localeCompare(b.date));
+      return `
+        <div class="card" style="max-width:560px; margin-bottom:1.25rem">
+          <div class="card-header"><h2>Holidays &amp; Week-offs</h2></div>
+          <div class="card-body" style="padding:1.5rem">
+            <div class="dept-tag" style="margin-bottom:.4rem">Weekly off rule (every month)</div>
+            <div style="display:flex; flex-wrap:wrap; gap:.75rem; margin-bottom:.9rem; font-size:.85rem">
+              <label style="display:flex; gap:.3rem; align-items:center"><input type="checkbox" id="woSun" ${w.sunday ? 'checked' : ''} />Every Sunday</label>
+              ${[1, 2, 3, 4, 5].map(n => `<label style="display:flex; gap:.3rem; align-items:center"><input type="checkbox" class="wo-sat" value="${n}" ${w.sats.includes(n) ? 'checked' : ''} />${ordinal(n)} Saturday</label>`).join('')}
+            </div>
+            <button class="btn btn-primary" style="margin-bottom:1.25rem" onclick="saveWeekoff()">Save Week-off Rules</button>
+
+            <div class="dept-tag" style="margin-bottom:.4rem">Add holiday (fixed calendar date)</div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:.6rem; margin-bottom:.6rem">
+              <input type="date" id="holDate" style="${inp}" />
+              <input type="text" id="holName" placeholder="e.g. Diwali" style="${inp}" />
+              <select id="holType" style="${inp}"><option value="festival">Festival</option><option value="national">National</option><option value="optional">Optional</option></select>
+            </div>
+            <label style="display:flex; gap:.4rem; align-items:center; font-size:.82rem; margin-bottom:.75rem"><input type="checkbox" id="holYearly" />Repeat every year on this date (use for fixed dates like national holidays)</label>
+            <button class="btn btn-primary" style="margin-bottom:1.25rem" onclick="addHoliday()">Add Holiday</button>
+
+            <div class="dept-tag" style="margin-bottom:.4rem">Holiday calendar (${list.length})</div>
+            <table>
+              <thead><tr><th>Date</th><th>Holiday</th><th>Type</th><th></th></tr></thead>
+              <tbody>${list.map(h => `
+                <tr><td>${formatDate(h.date)}${h.yearly ? '<div class="dept-tag">Every year</div>' : ''}</td><td>${esc(h.name)}</td>
+                <td><span class="hol-type ${h.type}">${HOL_TYPES[h.type]}</span></td>
+                <td><button class="btn btn-delete" onclick="deleteHoliday('${h.id}')">Remove</button></td></tr>`).join('')}
+              </tbody>
+            </table>
+            <p class="dept-tag" style="margin-top:.9rem; line-height:1.6">Rule in force: <strong>${weekoffSummary()}</strong>. National &amp; Festival holidays are automatic offs. Optional holidays are listed but stay working days. Off days are skipped for Absent marking in the eSSL import and can be marked on the Attendance page. Holiday is paid and never counts as LOP. Festival dates change every year, so add them for the year.</p>
+          </div>
+        </div>`;
+    }
+
+    // Marks Holiday / Week Off for the selected date for all active employees on the list. Never overwrites an existing record.
+    function applyHolidayRules() {
+      if (!isHR()) return;
+      const iso = attViewDate;
+      const info = dayOffInfo(iso);
+      if (!info.off) { showToast(formatDate(iso) + ' is a working day, not a holiday or week-off', 'error'); return; }
+      const list = getAttendance();
+      const have = new Set(list.map(a => a.empId + '|' + a.date));
+      const now = new Date().toISOString();
+      let added = 0;
+      attEmployeesFor(iso).forEach(e => {
+        if (have.has(e.id + '|' + iso)) return;
+        list.unshift({ id: uid(), empId: e.id, date: iso, status: 'holiday', inTime: '', outTime: '', source: 'Rule', createdAt: now });
+        added++;
+      });
+      setAttendance(list);
+      addActivity(`Marked <strong>${esc(info.label)}</strong> on ${formatDate(iso)} for ${added} employees`, 'green');
+      showToast(added ? added + ' employees marked as Holiday' : 'Already marked for everyone', 'success');
+      refreshCurrentPage();
+    }
+
+    // Holiday / week-off has no punch times: disable and clear In / Out in the Mark Attendance form
+    function attToggleTimes() {
+      const st = document.getElementById('attStatus').value, isOd = st === 'od';
+      document.getElementById('odBox').style.display = isOd ? '' : 'none';
+      const hol = st === 'holiday' || isOd;
+      ['attIn', 'attOut'].forEach(id => { const el = document.getElementById(id); el.disabled = hol; if (hol) el.value = ''; });
+      if (hol) document.getElementById('attHint').textContent = isOd ? 'On Duty: counted as present and paid. No LOP.' : 'Holiday / Week Off: In and Out time are not needed.';
+      else {
+        const o = officeCfg();
+        if (!document.getElementById('attIn').value) document.getElementById('attIn').value = o.open;
+        if (!document.getElementById('attOut').value) document.getElementById('attOut').value = o.close;
+        attSuggest();
+      }
+    }
+
+    // Flags off days in the Mark Attendance form and suggests Holiday status
+    function attDateCheck() {
+      const date = document.getElementById('attDate').value;
+      const info = dayOffInfo(date);
+      const sel = document.getElementById('attStatus');
+      const hint = document.getElementById('attHint');
+      if (info.off) {
+        sel.value = 'holiday';
+        hint.innerHTML = '<span style="color:#475569">' + esc(info.label) + ' â€“ marked as Holiday. Change the status only if the employee actually worked.</span>';
+      } else {
+        if (sel.value === 'holiday') sel.value = 'present';
+        // Default: Present, In = office opening, Out = office closing
+        const o = officeCfg(), inEl = document.getElementById('attIn'), outEl = document.getElementById('attOut');
+        if (!inEl.value) inEl.value = o.open;
+        if (!outEl.value) outEl.value = o.close;
+        if (info.kind === 'optional') hint.textContent = info.label + ' â€“ working day unless the employee opted for it.';
+        else attSuggest();
+      }
+      const hol = sel.value === 'holiday';
+      ['attIn', 'attOut'].forEach(id => { const el = document.getElementById(id); el.disabled = hol; if (hol) el.value = ''; });
+    }
+
+    // ========== eSSL BIOMETRIC IMPORT ==========
+    const ESSL_CFG_KEY = 'hrms_essl_cfg';
+    let esslRaw = '';
+    let esslRows = [];
+
+    function esslCfg() {
+      const d = { absent: false };
+      try { return Object.assign(d, JSON.parse(localStorage.getItem(ESSL_CFG_KEY) || '{}')); } catch (e) { return d; }
+    }
+
+    function openEsslImport() {
+      const c = esslCfg();
+      document.getElementById('esslFile').value = '';
+      document.getElementById('esslRules').innerHTML = '<strong>Office timings:</strong> ' + officeSummaryLine() + '. <span style="color:#64748b">Change them in Settings.</span>';
+      document.getElementById('esslAbsent').checked = !!c.absent;
+      document.getElementById('esslSummary').innerHTML = '';
+      document.getElementById('esslTable').innerHTML = '';
+      document.getElementById('esslCommit').disabled = true;
+      esslRaw = ''; esslRows = [];
+      openModal('esslModal');
+    }
+
+    function esslReadFile(input) {
+      const f = input.files && input.files[0];
+      if (!f) return;
+      const r = new FileReader();
+      r.onload = () => { esslRaw = String(r.result || ''); esslRebuild(); };
+      r.onerror = () => showToast('Could not read file', 'error');
+      r.readAsText(f);
+    }
+
+    function esslSplit(line, d) {
+      if (d !== ',') return line.split(d).map(x => x.trim());
+      const out = []; let cur = '', q = false;
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"') { if (q && line[i + 1] === '"') { cur += '"'; i++; } else q = !q; }
+        else if (ch === ',' && !q) { out.push(cur.trim()); cur = ''; }
+        else cur += ch;
+      }
+      out.push(cur.trim());
+      return out;
+    }
+
+    function esslDate(txt) {
+      let m = /(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/.exec(txt);
+      let y, mo, d;
+      if (m) { y = +m[1]; mo = +m[2]; d = +m[3]; }
+      else if ((m = /(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})/.exec(txt))) { d = +m[1]; mo = +m[2]; y = +m[3]; if (y < 100) y += 2000; }
+      else if ((m = /(\d{1,2})[-\s]([A-Za-z]{3})[a-z]*[-\s,]*(\d{2,4})/.exec(txt))) {
+        const mi = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'].indexOf(m[2].toLowerCase());
+        if (mi < 0) return null;
+        d = +m[1]; mo = mi + 1; y = +m[3]; if (y < 100) y += 2000;
+      } else return null;
+      if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+      return y + '-' + String(mo).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+    }
+
+    function esslTimes(txt) {
+      const res = []; const re = /(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?/gi; let m;
+      while ((m = re.exec(txt))) {
+        let h = +m[1]; const mi = +m[2];
+        if (m[3]) { const pm = m[3].toUpperCase() === 'PM'; if (pm && h < 12) h += 12; if (!pm && h === 12) h = 0; }
+        if (h > 23 || mi > 59) continue;
+        res.push(h * 60 + mi);
+      }
+      return res;
+    }
+
+    const esslHM = n => String(Math.floor(n / 60)).padStart(2, '0') + ':' + String(n % 60).padStart(2, '0');
+
+    function esslMatchEmp(code, name) {
+      const emps = getEmployees();
+      const norm = s => String(s || '').trim().toUpperCase();
+      const digits = s => String(s || '').replace(/\D/g, '').replace(/^0+/, '');
+      const c = norm(code);
+      if (c) {
+        let hit = emps.filter(e => norm(e.empCode) === c);
+        if (hit.length === 1) return hit[0];
+        const dg = digits(c);
+        if (dg) {
+          hit = emps.filter(e => digits(e.empCode) === dg);
+          if (hit.length === 1) return hit[0];
+        }
+      }
+      const n = String(name || '').trim().toLowerCase();
+      if (n) { const hit = emps.filter(e => String(e.name || '').trim().toLowerCase() === n); if (hit.length === 1) return hit[0]; }
+      return null;
+    }
+
+    function esslRebuild() {
+      const cfg = { absent: document.getElementById('esslAbsent').checked };
+      try { localStorage.setItem(ESSL_CFG_KEY, JSON.stringify(cfg)); } catch (e) {}
+      const sum = document.getElementById('esslSummary');
+      const tbl = document.getElementById('esslTable');
+      const btn = document.getElementById('esslCommit');
+      esslRows = []; btn.disabled = true; btn.textContent = 'Import';
+      if (!esslRaw.trim()) { sum.innerHTML = ''; tbl.innerHTML = ''; return; }
+
+      const lines = esslRaw.replace(/^\uFEFF/, '').split(/\r?\n/).filter(l => l.trim());
+      if (!lines.length) { sum.innerHTML = '<div class="empty-state">File is empty.</div>'; tbl.innerHTML = ''; return; }
+      const delims = ['\t', ',', '|', ';'];
+      const delim = delims.map(d => [d, lines[0].split(d).length]).sort((a, b) => b[1] - a[1])[0][0];
+      const grid = lines.map(l => esslSplit(l, delim));
+
+      // header detection: first row has no date and no time
+      const first = grid[0].join(' ');
+      const hasHeader = !esslDate(first) && !/\d{1,2}:\d{2}/.test(first);
+      const head = hasHeader ? grid[0].map(h => h.toLowerCase()) : [];
+      const body = hasHeader ? grid.slice(1) : grid;
+      const find = re => head.findIndex(h => re.test(h));
+      let iCode = find(/(emp(loyee)?\.?\s*(code|id|no)|user\s*id|userid|enroll|card\s*no|^code$|^id$)/);
+      let iName = find(/name/);
+      let iStatus = find(/^(status|attendance|status code|att\.?\s*status)$/);
+      const skip = new Set();
+      head.forEach((h, i) => { if (/(dur|hours|hrs|work|total|late|early|overtime|^ot$|shift|break)/.test(h)) skip.add(i); });
+      if (!hasHeader) { iCode = 0; iName = -1; iStatus = -1; }
+      if (iCode < 0) iCode = 0;
+
+      const map = {}; // key empId|date
+      const unmatched = {};
+      let rowsRead = 0, rowsBad = 0;
+      body.forEach(r => {
+        rowsRead++;
+        const code = r[iCode] || '';
+        const name = iName >= 0 ? r[iName] : '';
+        const text = r.filter((_, i) => i !== iCode && i !== iName && i !== iStatus && !skip.has(i)).join(' ');
+        const date = esslDate(text);
+        if (!date || !(code || name)) { rowsBad++; return; }
+        const emp = esslMatchEmp(code, name);
+        if (!emp) { const k = (code || name) + (name && code ? ' (' + name + ')' : ''); unmatched[k] = (unmatched[k] || 0) + 1; return; }
+        const key = emp.id + '|' + date;
+        const e = map[key] || (map[key] = { emp, date, times: [], flag: '' });
+        esslTimes(text.replace(/\d{4}[-\/.]\d{1,2}[-\/.]\d{1,2}/g, '')).forEach(t => e.times.push(t));
+        if (iStatus >= 0) e.sCode = String(r[iStatus] || '').trim().toUpperCase();
+      });
+
+      const out = [];
+      Object.values(map).forEach(e => {
+        const sc = e.sCode || '';
+        if (/^(WO|W\/O|H|PH|HOL|OFF|WEEKOFF)$/.test(sc)) return;
+        const t = e.times.slice().sort((a, b) => a - b);
+        let status, note = '', inT = '', outT = '';
+        if (!t.length) {
+          if (/^(A|ABS|ABSENT)$/.test(sc)) status = 'absent';
+          else if (/^(P|PRESENT)$/.test(sc)) { status = 'present'; note = 'No times in file'; }
+          else if (/^(HD|Â½P|0\.5|HALF)/.test(sc)) status = 'half-day';
+          else return;
+        } else {
+          const a = t[0], b = t[t.length - 1];
+          inT = esslHM(a);
+          const single = b - a < 30;
+          if (!single) outT = esslHM(b);
+          ({ status, note } = officeClassify(a, single ? null : b));
+        }
+        out.push({ empId: e.emp.id, name: e.emp.name, code: e.emp.empCode, date: e.date, status, inTime: inT, outTime: outT, note });
+      });
+
+      if (cfg.absent && out.length) {
+        const dates = out.map(r => r.date).sort();
+        const have = new Set(out.map(r => r.empId + '|' + r.date));
+        const existing = new Set(getAttendance().map(a => a.empId + '|' + a.date));
+        const d0 = new Date(dates[0] + 'T00:00:00'), d1 = new Date(dates[dates.length - 1] + 'T00:00:00');
+        for (let d = new Date(d0); d <= d1; d.setDate(d.getDate() + 1)) {
+          const iso = ISO(d);
+          if (!isWorkingDay(iso)) continue;
+          getEmployees().filter(e => e.status !== 'inactive').forEach(e => {
+            const k = e.id + '|' + iso;
+            if (have.has(k) || existing.has(k)) return;
+            out.push({ empId: e.id, name: e.name, code: e.empCode, date: iso, status: 'absent', inTime: '', outTime: '', note: 'No punch' });
+          });
+        }
+      }
+
+      out.sort((a, b) => a.date.localeCompare(b.date) || String(a.code).localeCompare(String(b.code)));
+      esslRows = out;
+
+      const cnt = { present: 0, late: 0, 'half-day': 0, absent: 0 };
+      out.forEach(r => cnt[r.status]++);
+      const existingKeys = new Set(getAttendance().map(a => a.empId + '|' + a.date));
+      const overwrites = out.filter(r => existingKeys.has(r.empId + '|' + r.date)).length;
+      const um = Object.keys(unmatched);
+      sum.innerHTML = `
+        <div style="font-size:.82rem;line-height:1.7;margin-bottom:.75rem;">
+          <strong>${out.length}</strong> attendance records ready from ${rowsRead} rows
+          (Present ${cnt.present}, Late ${cnt.late}, Half Day ${cnt['half-day']}, Absent ${cnt.absent}).
+          ${overwrites ? `<br><span style="color:#d97706;">${overwrites} will replace existing records for the same employee and date.</span>` : ''}
+          ${rowsBad ? `<br><span style="color:#64748b;">${rowsBad} rows skipped (no readable date or employee code).</span>` : ''}
+          ${um.length ? `<br><span style="color:#dc2626;">Not matched to any employee (${um.length}): ${um.slice(0, 12).map(esc).join(', ')}${um.length > 12 ? ' â€¦' : ''}. Add or correct their Employee ID and re-import.</span>` : ''}
+        </div>`;
+      const badge = { present: 'active', absent: 'inactive', 'half-day': 'probation', late: 'on-leave' };
+      const label = { present: 'Present', absent: 'Absent', 'half-day': 'Half Day', late: 'Late' };
+      tbl.innerHTML = out.length ? `
+        <table>
+          <thead><tr><th>Date</th><th>Employee</th><th>In</th><th>Out</th><th>Status</th><th>Note</th></tr></thead>
+          <tbody>${out.slice(0, 300).map(r => `
+            <tr><td>${formatDate(r.date)}</td><td>${esc(r.name)} <span class="dept-tag">${esc(r.code || '')}</span></td>
+            <td>${r.inTime || 'â€”'}</td><td>${r.outTime || 'â€”'}</td>
+            <td><span class="badge ${badge[r.status]}">${label[r.status]}</span></td><td class="dept-tag">${esc(r.note)}</td></tr>`).join('')}
+          </tbody>
+        </table>${out.length > 300 ? `<div class="dept-tag" style="padding:.5rem;">Showing first 300 of ${out.length}. All will be imported.</div>` : ''}`
+        : '<div class="empty-state">No usable records found. Check that the file has an Employee Code and a date/time per row.</div>';
+      btn.disabled = !out.length;
+      btn.textContent = out.length ? `Import ${out.length} records` : 'Import';
+    }
+
+    function esslCommit() {
+      if (!esslRows.length) return;
+      const now = new Date().toISOString();
+      const odKeep = new Set(getAttendance().filter(a => a.status === 'od').map(a => a.empId + '|' + a.date));
+      esslRows = esslRows.filter(r => !odKeep.has(r.empId + '|' + r.date));
+      if (!esslRows.length) { showToast('All rows fall on OD days and were kept as OD', 'success'); closeModal('esslModal'); return; }
+      const keys = new Set(esslRows.map(r => r.empId + '|' + r.date));
+      const list = getAttendance().filter(a => !keys.has(a.empId + '|' + a.date));
+      esslRows.slice().reverse().forEach(r => list.unshift({
+        id: uid(), empId: r.empId, date: r.date, status: r.status,
+        inTime: r.inTime, outTime: r.outTime, source: 'eSSL', createdAt: now
+      }));
+      setAttendance(list);
+      addActivity(`Imported <strong>${esslRows.length}</strong> eSSL biometric attendance records`, 'green');
+      showToast(esslRows.length + ' records imported', 'success');
+      esslRows = []; esslRaw = '';
+      closeModal('esslModal');
+      refreshCurrentPage();
+    }
+
+    // ========== ATTENDANCE ==========
+    function openMarkAttendance() {
+      document.getElementById('attForm').reset();
+      document.getElementById('attDate').value = attViewDate;
+      attBuildEmpList(false);   // all employees selected by default
+      attDateCheck();
+      openModal('attModal');
+    }
+
+    // Employee list on the left of the form: Employee ID + name, all ticked by default
+    function attBuildEmpList(keep) {
+      const date = document.getElementById('attDate').value || attViewDate;
+      const unchecked = new Set(keep ? [...document.querySelectorAll('.att-emp')].filter(c => !c.checked).map(c => c.value) : []);
+      const emps = attEmployeesFor(date);
+      document.getElementById('attEmpList').innerHTML = emps.length ? emps.map(e => `
+        <label class="att-row">
+          <input type="checkbox" class="att-emp" value="${e.id}" ${unchecked.has(e.id) ? '' : 'checked'} onchange="attSyncAll()" />
+          <span class="att-id">${esc(e.empCode || '')}</span><span>${esc(e.name)}</span>
+        </label>`).join('') : '<div class="dept-tag" style="padding:.75rem">No employees on the roll for this date.</div>';
+      attSyncAll();
+    }
+
+    function attToggleAll(on) {
+      document.querySelectorAll('.att-emp').forEach(c => { c.checked = on; });
+      attSyncAll();
+    }
+
+    function attSyncAll() {
+      const all = [...document.querySelectorAll('.att-emp')];
+      const n = all.filter(c => c.checked).length;
+      const box = document.getElementById('attAll');
+      box.checked = all.length > 0 && n === all.length;
+      box.indeterminate = n > 0 && n < all.length;
+      document.getElementById('attEmpCount').textContent = '(' + n + ' of ' + all.length + ' selected)';
+    }
+
+    function attDateChanged() {
+      attBuildEmpList(true);
+      attDateCheck();
+    }
+
+    // Suggest Present / Late / Half Day from the times entered, using Office Timings (can still be changed)
+    function attSuggest() {
+      const a = hmToMin(document.getElementById('attIn').value), bRaw = document.getElementById('attOut').value, b = hmToMin(bRaw);
+      const hint = document.getElementById('attHint');
+      if (a == null) { hint.textContent = 'Office hours: ' + to12h(officeCfg().open) + ' â€“ ' + to12h(officeCfg().close) + ', lunch ' + to12h(officeCfg().lunchStart) + ' â€“ ' + to12h(officeCfg().lunchEnd) + '.'; return; }
+      if (b != null && b < a) { hint.textContent = 'Out time is earlier than In time.'; return; }
+      const r = officeClassify(a, b);
+      const sel = document.getElementById('attStatus');
+      if (['present', 'late', 'half-day'].includes(sel.value)) sel.value = r.status;
+      hint.textContent = 'Suggested: ' + ATT_STATUSES.find(([v]) => v === r.status)[1] + (r.note && b != null ? ' (' + r.note + ')' : '') + (b != null ? ' Â· Worked ' + fmtDur(officeNetMin(a, b)) + ' excl. lunch' : '');
+    }
+
+    function saveAttendance(ev) {
+      ev.preventDefault();
+      const ids = [...document.querySelectorAll('.att-emp')].filter(c => c.checked).map(c => c.value);
+      const date = document.getElementById('attDate').value;
+      const status = document.getElementById('attStatus').value;
+      const isHol = status === 'holiday' || status === 'od';
+      let od = null;
+      if (status === 'od') {
+        od = { type: document.getElementById('odType').value, dur: document.getElementById('odDur').value, place: document.getElementById('odPlace').value.trim(), purpose: document.getElementById('odPurpose').value.trim(), by: (session && session.user) || 'admin' };
+        if (!od.place) { showToast('Enter the OD place / organisation', 'error'); return; }
+      }
+      const inTime = isHol ? '' : document.getElementById('attIn').value;
+      const outTime = isHol ? '' : document.getElementById('attOut').value;
+      if (!ids.length) { showToast('Select at least one employee', 'error'); return; }
+      if (inTime && outTime && outTime < inTime) { showToast('Out time cannot be earlier than In time', 'error'); return; }
+
+      const now = new Date().toISOString();
+      const chosen = new Set(ids);
+      // replace any existing record for the same employee + date
+      const list = getAttendance().filter(a => !(chosen.has(a.empId) && a.date === date));
+      ids.slice().reverse().forEach(empId => list.unshift({ id: uid(), empId, date, status, inTime, outTime, source: 'Manual', createdAt: now, ...(od ? { od } : {}) }));
+      setAttendance(list);
+
+      const names = ids.length === 1 ? `<strong>${esc(findEmployee(ids[0])?.name)}</strong>` : `<strong>${ids.length} employees</strong>`;
+      addActivity(`Attendance marked for ${names} on ${formatDate(date)}: ${status}`, status === 'absent' ? 'red' : 'green');
+      showToast('Attendance saved for ' + ids.length + (ids.length === 1 ? ' employee' : ' employees'), 'success');
+      attViewDate = date;
+      closeModal('attModal');
+      refreshCurrentPage();
+    }
+
+    // ========== OD + PERMISSIONS (1 hr / 2 hr short outings) ==========
+    function openOd(empId, date) {
+      openMarkAttendance();
+      document.getElementById('attDate').value = date;
+      attBuildEmpList(false);
+      document.querySelectorAll('.att-emp').forEach(c => { c.checked = c.value === empId; });
+      attSyncAll();
+      document.getElementById('attStatus').value = 'od';
+      attToggleTimes();
+    }
+    const getPerms = () => load(STORAGE_KEYS.perms) || [];
+    const setPerms = l => save(STORAGE_KEYS.perms, l);
+    const permPolicy = () => Object.assign({ quota: 4 }, load(STORAGE_KEYS.permPolicy) || {});
+    const permsOn = (empId, date) => getPerms().filter(p => p.empId === empId && p.date === date && p.status !== 'rejected');
+    // Booked hours, plus any time taken beyond the booked end (when a return time is recorded)
+    function permEff(p) { const r = hmToMin(p.returnedAt), e = hmToMin(p.to); return +(p.hours + (r != null && r > e ? (r - e) / 60 : 0)).toFixed(2); }
+    // Approved permissions of the month in date order: first `quota` hours are free, the rest is excess
+    function permMonth(empId, month) {
+      const q = permPolicy().quota;
+      const list = getPerms().filter(p => p.empId === empId && p.date.startsWith(month) && p.status === 'approved').sort((a, b) => (a.date + a.from).localeCompare(b.date + b.from));
+      let used = 0;
+      const rows = list.map(p => { const eff = permEff(p), free = Math.max(0, Math.min(eff, q - used)); used += eff; return { p, eff, excess: +(eff - free).toFixed(2) }; });
+      return { quota: q, used: +used.toFixed(2), excess: +rows.reduce((t, r) => t + r.excess, 0).toFixed(2), rows, count: list.length };
+    }
+    function permLopDays(empId, month) { const dh = officeCfg().dailyMin / 60; return dh > 0 ? +(permMonth(empId, month).excess / dh).toFixed(2) : 0; }
+
+    function attExtra(empId, date, a) {
+      const od = a && a.od ? `<div><span class="badge od">OD</span> ${esc(a.od.type)} Â· ${esc(a.od.place)}${a.od.dur === 'half' ? ' (Half day)' : ''}${a.od.purpose ? ' Â· ' + esc(a.od.purpose) : ''}</div>` : '';
+      const pm = permsOn(empId, date).map(x => `<div><span class="badge ${x.status === 'approved' ? 'probation' : 'pending'}">Perm ${x.hours}h</span> ${to12h(x.from)}â€“${to12h(x.to)}${x.status === 'pending' ? ' (pending)' : ''}</div>`).join('');
+      return (od + pm) || 'â€”';
+    }
+
+    let permViewMonth = ISO(new Date()).slice(0, 7);
+    function setPermMonth(v) { if (/^\d{4}-\d{2}$/.test(v)) { permViewMonth = v; refreshCurrentPage(); } }
+
+    function openPermModal() {
+      document.getElementById('permForm').reset();
+      document.getElementById('permEmp').innerHTML = getEmployees().filter(e => isHR() ? e.status !== 'inactive' : e.id === session?.empId)
+        .map(e => `<option value="${e.id}">${esc(e.empCode ? e.empCode + ' â€“ ' : '')}${esc(e.name)}</option>`).join('');
+      document.getElementById('permDate').value = localISO();
+      document.getElementById('permFrom').value = officeCfg().lunchEnd;
+      permHint();
+      openModal('permModal');
+    }
+    function permHint() {
+      const g = id => document.getElementById(id).value, hint = document.getElementById('permHint');
+      const a = hmToMin(g('permFrom')), h = +g('permHours'), empId = g('permEmp'), date = g('permDate');
+      if (a == null || !empId || !date) { hint.textContent = ''; return; }
+      const m = permMonth(empId, date.slice(0, 7)), q = m.quota, add = Math.max(0, m.used + h - q) - Math.max(0, m.used - q);
+      hint.innerHTML = `Out ${to12h(minToHM(a))} â†’ back by ${to12h(minToHM(a + h * 60))}. This month: ${m.used}h of ${q}h quota used.` +
+        (add > 0 ? ` <strong style="color:#dc2626">${add}h will be excess â†’ ${(add / (officeCfg().dailyMin / 60)).toFixed(2)} day LOP.</strong>` : ' Within quota (no deduction).');
+    }
+    function savePerm(ev) {
+      ev.preventDefault();
+      const g = id => document.getElementById(id).value.trim(), o = officeCfg();
+      const empId = g('permEmp'), date = g('permDate'), hours = +g('permHours'), from = g('permFrom'), purpose = g('permPurpose'), place = g('permPlace');
+      const a = hmToMin(from), b = a == null ? null : a + hours * 60, err = m => showToast(m, 'error');
+      if (!empId || a == null || !purpose) return err('Fill employee, date, time and reason');
+      if (a < o.openMin || b > o.closeMin) return err('Permission must be within office hours (' + to12h(o.open) + ' â€“ ' + to12h(o.close) + ')');
+      if (dayOffInfo(date).off) return err('That day is a holiday / week-off');
+      if (!isHR() && date < localISO()) return err('Past-date permission can only be added by HR');
+      if (getLeaves().some(l => l.empId === empId && l.status === 'approved' && l.from <= date && date <= l.to)) return err('Employee is on approved leave that day');
+      if (permsOn(empId, date).some(p => hmToMin(p.from) < b && a < hmToMin(p.to))) return err('Overlaps another permission that day');
+      const hr = isHR(), list = getPerms();
+      list.unshift({ id: uid(), empId, date, hours, from, to: minToHM(b), purpose, place, returnedAt: '', status: hr ? 'approved' : 'pending', by: hr ? ((session && session.user) || 'admin') : '', source: hr ? 'HR' : 'Employee', createdAt: new Date().toISOString() });
+      setPerms(list);
+      addActivity(`Permission ${hours}h ${hr ? 'recorded' : 'requested'} for <strong>${esc(findEmployee(empId)?.name)}</strong> on ${formatDate(date)}`, 'amber');
+      showToast(hr ? 'Permission recorded' : 'Permission request sent to HR', 'success');
+      permViewMonth = date.slice(0, 7);
+      closeModal('permModal'); updatePermBadge(); refreshCurrentPage();
+    }
+    function permUpdate(id, fn, msg) {
+      if (!isHR()) return;
+      const l = getPerms(), p = l.find(x => x.id === id); if (!p) return;
+      if (fn(p) === false) return;
+      setPerms(l); updatePermBadge(); addActivity(`${msg} for <strong>${esc(findEmployee(p.empId)?.name)}</strong> (${formatDate(p.date)})`, 'blue'); refreshCurrentPage();
+    }
+    const permDecide = (id, st) => permUpdate(id, p => { p.status = st; p.by = (session && session.user) || 'admin'; p.decidedAt = new Date().toISOString(); }, 'Permission ' + st);
+    function permReturn(id) {
+      permUpdate(id, p => {
+        const v = prompt('Actual return time (HH:MM, 24-hour). Leave blank to clear:', p.returnedAt || p.to); if (v === null) return false;
+        if (v.trim() && hmToMin(v) == null) { showToast('Use HH:MM format', 'error'); return false; }
+        p.returnedAt = v.trim();
+      }, 'Return time updated');
+    }
+    function permDelete(id) {
+      if (!isHR() || !confirm('Delete this permission record?')) return;
+      setPerms(getPerms().filter(p => p.id !== id)); updatePermBadge(); showToast('Record deleted', 'success'); refreshCurrentPage();
+    }
+    function savePermPolicy() {
+      const q = parseFloat(document.getElementById('permQuota').value);
+      if (isNaN(q) || q < 0) { showToast('Enter a valid number of hours', 'error'); return; }
+      save(STORAGE_KEYS.permPolicy, { quota: q }); showToast('Permission policy saved', 'success'); refreshCurrentPage();
+    }
+    function renderPermPolicyCard() {
+      const p = permPolicy(), dh = (officeCfg().dailyMin / 60).toFixed(2);
+      return `<div class="card"><div class="card-header"><h2>Permission (1 hr / 2 hr) Policy</h2></div><div class="card-body" style="padding:1.25rem">
+        <div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin-bottom:.9rem"><label style="font-size:.85rem">Free permission hours per employee per month</label>
+        <input id="permQuota" type="number" min="0" step="0.5" value="${p.quota}" style="padding:.5rem .7rem;border:1px solid var(--border);border-radius:8px;width:90px;font-family:inherit" />
+        <button class="btn btn-primary" style="padding:.55rem 1rem" onclick="savePermPolicy()">Save</button></div>
+        <p class="dept-tag" style="line-height:1.6">Each permission is 1 hr or 2 hr, within office hours. Hours beyond the monthly quota (and any overstay past the booked time) are treated as loss of pay: excess hours Ã· ${dh} daily working hours Ã— (Gross Ã· 30), added to the payroll LOP. This quota is company policy: Indian labour law does not fix a permission quota (working hours and rest intervals come from the Telangana Shops &amp; Establishments Act, 1988), so set it as per your HR policy.</p></div></div>`;
+    }
+
+    function permTable(list, rowMap, hr) {
+      if (!list.length) return '<div class="empty-state">No permission records for this month.</div>';
+      return `<table><thead><tr><th>Employee</th><th>Date</th><th>Out â€“ In</th><th>Hrs</th><th>Place / Reason</th><th>Returned</th><th>Counts as</th><th>Status</th><th>${hr ? 'Actions' : ''}</th></tr></thead><tbody>${list.map(p => {
+        const e = findEmployee(p.empId), r = rowMap[p.id];
+        const cnt = p.status !== 'approved' ? 'â€”' : (r && r.excess > 0 ? `<span style="color:#dc2626">Excess ${r.excess}h (LOP)</span>` : 'Within quota');
+        const act = hr ? `<div class="btn-group" style="flex-wrap:nowrap">${p.status === 'pending' ? `<button class="btn btn-approve" onclick="permDecide('${p.id}','approved')">Approve</button><button class="btn btn-reject" onclick="permDecide('${p.id}','rejected')">Reject</button>` : ''}${p.status === 'approved' ? `<button class="btn btn-secondary" onclick="permReturn('${p.id}')">Set return</button>` : ''}<button class="btn btn-delete" onclick="permDelete('${p.id}')">Delete</button></div>` : '';
+        return `<tr><td>${empCell(e)}</td><td class="dept-tag">${formatDate(p.date)}</td><td>${to12h(p.from)} â€“ ${to12h(p.to)}</td><td>${p.hours}h</td><td class="dept-tag">${esc(p.place)}${p.place && p.purpose ? ' Â· ' : ''}${esc(p.purpose)}</td><td class="dept-tag">${p.returnedAt ? to12h(p.returnedAt) : 'â€”'}</td><td class="dept-tag">${cnt}</td><td><span class="badge ${p.status}">${p.status[0].toUpperCase() + p.status.slice(1)}</span></td><td>${act}</td></tr>`;
+      }).join('')}</tbody></table>`;
+    }
+    const permMonthPicker = () => `<input type="month" value="${permViewMonth}" onchange="setPermMonth(this.value)" aria-label="Month" style="padding:.4rem .6rem;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:.8rem" />`;
+
+    function renderPermissions() {
+      const m = permViewMonth, emps = getEmployees().filter(e => e.status !== 'inactive'), rowMap = {};
+      emps.forEach(e => permMonth(e.id, m).rows.forEach(r => { rowMap[r.p.id] = r; }));
+      const list = getPerms().filter(p => p.date.startsWith(m)).sort((a, b) => (b.date + b.from).localeCompare(a.date + a.from));
+      const sum = emps.map(e => ({ e, x: permMonth(e.id, m) })).filter(r => r.x.count);
+      const pend = getPerms().filter(p => p.status === 'pending').length, dh = officeCfg().dailyMin / 60;
+      return `
+        <div class="card"><div class="card-header"><h2>Permissions â€“ ${monthLabel(m)}</h2>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">${permMonthPicker()}<button class="btn btn-primary" style="padding:.5rem 1rem;font-size:.8rem" onclick="openPermModal()">+ Add Permission</button></div></div>
+          <div class="card-body table-wrap">
+            <div style="padding:.75rem 1rem;background:#f8fafc;font-size:.85rem;line-height:1.7">Quota: <strong>${permPolicy().quota}h</strong> per employee per month (Settings) Â· Daily working hours: <strong>${dh.toFixed(2)}h</strong> Â· Pending requests: <strong>${pend}</strong></div>
+            ${sum.length ? `<table><thead><tr><th>Employee</th><th>Permissions</th><th>Hours used</th><th>Quota</th><th>Excess hrs</th><th>LOP days</th><th>Est. deduction</th></tr></thead><tbody>${sum.map(({ e, x }) => { const d = dh > 0 ? +(x.excess / dh).toFixed(2) : 0; return `<tr><td>${empCell(e)}</td><td>${x.count}</td><td>${x.used}h</td><td>${x.quota}h</td><td>${x.excess ? `<span style="color:#dc2626">${x.excess}h</span>` : '0h'}</td><td>${d}</td><td>${d ? inr(structure(getCTCs()[e.id] || 0).gross / 30 * d) : 'â€”'}</td></tr>`; }).join('')}</tbody></table>` : ''}
+          </div></div>
+        <div class="card" style="margin-top:1.25rem"><div class="card-header"><h2>Permission Records</h2></div><div class="card-body table-wrap">${permTable(list, rowMap, true)}</div></div>${odCard(true)}`;
+    }
+    function renderMyPerm() {
+      const id = session?.empId, m = permViewMonth, x = permMonth(id, m), rowMap = {};
+      x.rows.forEach(r => { rowMap[r.p.id] = r; });
+      const list = getPerms().filter(p => p.empId === id && p.date.startsWith(m)).sort((a, b) => (b.date + b.from).localeCompare(a.date + a.from));
+      return `
+        <div class="card"><div class="card-header"><h2>My Permissions â€“ ${monthLabel(m)}</h2>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">${permMonthPicker()}<button class="btn btn-primary" style="padding:.5rem 1rem;font-size:.8rem" onclick="openPermModal()">+ Request Permission</button></div></div>
+          <div class="card-body" style="padding:1rem 1.25rem;font-size:.9rem;line-height:1.7">Used <strong>${x.used}h</strong> of <strong>${x.quota}h</strong> free quota${x.excess ? ` Â· <span style="color:#dc2626">${x.excess}h excess will be deducted as loss of pay</span>` : ''}. Permissions are 1 or 2 hours within office hours and need HR approval.</div></div>
+        <div class="card" style="margin-top:1.25rem"><div class="card-body table-wrap">${permTable(list, rowMap, false)}</div></div>${odCard(false, id)}`;
+    }
+
+    // ========== OD REQUESTS (employee asks, HR approves) + sidebar badge ==========
+    const getOdReqs = () => load(STORAGE_KEYS.odReqs) || [];
+    const setOdReqs = l => save(STORAGE_KEYS.odReqs, l);
+    function updatePermBadge() {
+      const nav = document.querySelector('.nav-item[data-page="permissions"]'); if (!nav) return;
+      let b = document.getElementById('permBadge');
+      if (!b) { b = document.createElement('span'); b.className = 'badge'; b.id = 'permBadge'; nav.appendChild(b); }
+      const n = isHR() ? getPerms().filter(p => p.status === 'pending').length + getOdReqs().filter(r => r.status === 'pending').length : 0;
+      b.textContent = n; b.style.display = n ? 'inline-flex' : 'none';
+    }
+    function openOdReq() {
+      document.getElementById('odReqForm').reset();
+      document.getElementById('oqEmp').innerHTML = getEmployees().filter(e => isHR() ? e.status !== 'inactive' : e.id === session?.empId)
+        .map(e => `<option value="${e.id}">${esc(e.empCode ? e.empCode + ' â€“ ' : '')}${esc(e.name)}</option>`).join('');
+      document.getElementById('oqFrom').value = document.getElementById('oqTo').value = localISO();
+      openModal('odReqModal');
+    }
+    function saveOdReq(ev) {
+      ev.preventDefault();
+      const g = id => document.getElementById(id).value.trim(), err = m => showToast(m, 'error');
+      const r = { id: uid(), empId: g('oqEmp'), from: g('oqFrom'), to: g('oqTo'), type: g('oqType'), dur: g('oqDur'), place: g('oqPlace'), purpose: g('oqPurpose'), status: 'pending', createdAt: new Date().toISOString() };
+      if (!r.empId || !r.place) return err('Fill employee and place');
+      if (r.to < r.from) return err('"To" date cannot be before "From" date');
+      if (r.dur === 'half' && r.from !== r.to) return err('Half-day OD must be a single date');
+      if (!isHR() && r.from < localISO()) return err('Past-date OD can only be added by HR');
+      if (getOdReqs().some(x => x.empId === r.empId && x.status !== 'rejected' && x.from <= r.to && x.to >= r.from)) return err('An OD request already exists for these dates');
+      const l = getOdReqs(); l.unshift(r); setOdReqs(l);
+      addActivity(`OD requested by <strong>${esc(findEmployee(r.empId)?.name)}</strong> (${esc(r.place)})`, 'amber');
+      showToast('OD request sent to HR', 'success');
+      closeModal('odReqModal');
+      if (isHR()) odDecide(r.id, 'approved'); else { updatePermBadge(); refreshCurrentPage(); }
+    }
+    // Approving writes an OD attendance record for every working day in the range
+    function odDecide(id, st) {
+      if (!isHR()) return;
+      const l = getOdReqs(), r = l.find(x => x.id === id); if (!r) return;
+      let days = 0;
+      if (st === 'approved') {
+        const att = getAttendance(), leaves = getLeaves().filter(x => x.empId === r.empId && x.status === 'approved');
+        const keep = new Set(), now = new Date().toISOString();
+        for (let d = new Date(r.from + 'T00:00:00'); ISO(d) <= r.to; d.setDate(d.getDate() + 1)) {
+          const iso = ISO(d);
+          if (dayOffInfo(iso).off || leaves.some(x => x.from <= iso && iso <= x.to)) continue;
+          keep.add(iso); days++;
+        }
+        const rest = att.filter(a => !(a.empId === r.empId && keep.has(a.date)));
+        [...keep].sort().reverse().forEach(iso => rest.unshift({ id: uid(), empId: r.empId, date: iso, status: 'od', inTime: '', outTime: '', source: 'OD Request', createdAt: now,
+          od: { type: r.type, dur: r.dur, place: r.place, purpose: r.purpose, by: (session && session.user) || 'admin' } }));
+        setAttendance(rest);
+      }
+      r.status = st; r.days = days; r.by = (session && session.user) || 'admin'; r.decidedAt = new Date().toISOString();
+      setOdReqs(l);
+      addActivity(`OD ${st} for <strong>${esc(findEmployee(r.empId)?.name)}</strong> (${formatDate(r.from)}${r.to !== r.from ? ' â€“ ' + formatDate(r.to) : ''})`, st === 'approved' ? 'green' : 'red');
+      showToast(st === 'approved' ? `OD approved â€“ ${days} working day(s) marked` : 'OD rejected', 'success');
+      updatePermBadge(); refreshCurrentPage();
+    }
+    function odReqTable(list, hr) {
+      if (!list.length) return '<div class="empty-state">No OD requests.</div>';
+      return `<table><thead><tr><th>Employee</th><th>Dates</th><th>Type</th><th>Place / Purpose</th><th>Duration</th><th>Status</th><th>${hr ? 'Actions' : ''}</th></tr></thead><tbody>${list.map(r => `<tr><td>${empCell(findEmployee(r.empId))}</td><td class="dept-tag">${formatDate(r.from)}${r.to !== r.from ? ' â€“ ' + formatDate(r.to) : ''}</td><td>${esc(r.type)}</td><td class="dept-tag">${esc(r.place)}${r.purpose ? ' Â· ' + esc(r.purpose) : ''}</td><td>${r.dur === 'half' ? 'Half day' : 'Full day'}${r.status === 'approved' ? `<div class="dept-tag">${r.days} day(s) marked</div>` : ''}</td><td><span class="badge ${r.status}">${r.status[0].toUpperCase() + r.status.slice(1)}</span></td><td>${hr && r.status === 'pending' ? `<div class="btn-group" style="flex-wrap:nowrap"><button class="btn btn-approve" onclick="odDecide('${r.id}','approved')">Approve</button><button class="btn btn-reject" onclick="odDecide('${r.id}','rejected')">Reject</button></div>` : ''}</td></tr>`).join('')}</tbody></table>`;
+    }
+    const odCard = (hr, empId) => {
+      const list = getOdReqs().filter(r => hr || r.empId === empId).sort((a, b) => (a.status === 'pending' ? 0 : 1) - (b.status === 'pending' ? 0 : 1) || b.from.localeCompare(a.from)).slice(0, 30);
+      return `<div class="card" style="margin-top:1.25rem"><div class="card-header"><h2>OD Requests${hr ? ` (${list.filter(r => r.status === 'pending').length} pending)` : ''}</h2><button class="btn btn-primary" style="padding:.5rem 1rem;font-size:.8rem" onclick="openOdReq()">${hr ? '+ Add OD' : '+ Request OD'}</button></div><div class="card-body table-wrap">${odReqTable(list, hr)}</div></div>`;
+    };
+
+    // ========== RENDER PAGES ==========
+    let currentPage = 'dashboard';
+    let searchQuery = '';
+
+    function refreshCurrentPage() {
+      navigate(currentPage, false);
+    }
+
+    function renderDashboardBase() {
+      const emps = getEmployees();
+      const leaves = getLeaves();
+      const pendingLeaves = leaves.filter(l => l.status === 'pending');
+      const onLeave = emps.filter(e => e.status === 'on-leave').length;
+      const active = emps.filter(e => e.status === 'active' || e.status === 'probation').length;
+      const activities = getActivities().slice(0, 6);
+
+      return `
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-info">
+              <h3>Total Employees</h3>
+              <div class="value">${emps.length}</div>
+              <div class="change up">${active} active</div>
+            </div>
+            <div class="stat-icon blue">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/></svg>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-info">
+              <h3>Active Staff</h3>
+              <div class="value">${active}</div>
+              <div class="change up">${emps.length ? Math.round(active / emps.length * 100) : 0}% of total</div>
+            </div>
+            <div class="stat-icon green">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-info">
+              <h3>On Leave</h3>
+              <div class="value">${onLeave}</div>
+              <div class="change down">${pendingLeaves.length} pending requests</div>
+            </div>
+            <div class="stat-icon amber">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/></svg>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-info">
+              <h3>Pending Leaves</h3>
+              <div class="value">${pendingLeaves.length}</div>
+              <div class="change up">Awaiting action</div>
+            </div>
+            <div class="stat-icon purple">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-header">
+              <h2>Recent Employees</h2>
+              <a href="#" class="link" onclick="navigate('employees'); return false;">View all</a>
+            </div>
+            <div class="card-body table-wrap">
+              ${emps.length === 0 ? '<div class="empty-state">No employees yet. Add one!</div>' : `
+              <table>
+                <thead><tr><th>Employee</th><th>Department</th><th>Status</th></tr></thead>
+                <tbody>
+                  ${emps.slice(0, 5).map(e => `
+                    <tr>
+                      <td>
+                        <div class="emp-cell">
+                          <div class="emp-avatar" style="background:${e.color}">${avImg(e)}</div>
+                          <div>
+                            <div class="emp-name">${e.name}</div>
+                            <div class="emp-email">${e.role}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td class="dept-tag">${e.dept}</td>
+                      <td>${statusBadge(e.status)}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>`}
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h2>Pending Leave Requests</h2>
+              <a href="#" class="link" onclick="navigate('leave'); return false;">View all</a>
+            </div>
+            <div class="card-body">
+              ${pendingLeaves.length === 0 ? '<div class="empty-state" style="padding:2rem">No pending requests</div>' :
+                pendingLeaves.slice(0, 4).map(l => {
+                  const emp = findEmployee(l.empId);
+                  return `
+                  <div class="leave-item">
+                    <div class="leave-info">
+                      <div class="emp-avatar" style="background:${emp?.color || '#64748b'}">${avImg(emp)}</div>
+                      <div>
+                        <div class="emp-name">${emp?.name || 'Unknown'}</div>
+                        <div class="leave-dates">${l.type} Â· ${formatDate(l.from)} â€“ ${formatDate(l.to)}</div>
+                      </div>
+                    </div>
+                    <div class="btn-group">
+                      <button class="btn btn-approve" onclick="updateLeaveStatus('${l.id}','approved')">Approve</button>
+                      <button class="btn btn-reject" onclick="updateLeaveStatus('${l.id}','rejected')">Reject</button>
+                    </div>
+                  </div>`;
+                }).join('')}
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-header"><h2>Recent Activity</h2></div>
+            <div class="card-body">
+              <ul class="activity-list">
+                ${activities.length === 0 ? '<li class="activity-item"><div class="activity-content"><div class="activity-text">No activity yet</div></div></li>' :
+                  activities.map(a => `
+                  <li class="activity-item">
+                    <div class="activity-dot ${a.color}"></div>
+                    <div class="activity-content">
+                      <div class="activity-text">${a.text}</div>
+                      <div class="activity-time">${timeAgo(a.time)}</div>
+                    </div>
+                  </li>`).join('')}
+              </ul>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><h2>Quick Actions</h2></div>
+            <div class="actions-grid">
+              <a class="action-btn" href="#" onclick="openAddEmployee(); return false;">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM4 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 0110.374 21c-2.331 0-4.512-.645-6.374-1.766z"/></svg>
+                Add Employee
+              </a>
+              <a class="action-btn" href="#" onclick="openMarkAttendance(); return false;">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                Mark Attendance
+              </a>
+              <a class="action-btn" href="#" onclick="openAddLeave(); return false;">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/></svg>
+                Request Leave
+              </a>
+              <a class="action-btn" href="#" onclick="navigate('employees'); return false;">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/></svg>
+                View Employees
+              </a>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderEmployees() {
+      let emps = getEmployees();
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        emps = emps.filter(e =>
+          e.name.toLowerCase().includes(q) ||
+          e.email.toLowerCase().includes(q) ||
+          (e.empCode || '').toLowerCase().includes(q) ||
+          e.dept.toLowerCase().includes(q) ||
+          e.role.toLowerCase().includes(q)
+        );
+      }
+
+      return `
+        <div class="card">
+          <div class="card-header">
+            <h2>All Employees (${emps.length})</h2>
+            <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+              <button class="btn btn-secondary" style="padding:.5rem 1rem; font-size:.8rem;" onclick="empExportExcel()">Export Excel</button>
+              <button class="btn btn-secondary" style="padding:.5rem 1rem; font-size:.8rem;" onclick="empExportPDF()">Export PDF</button>
+              <button class="btn btn-secondary" style="padding:.5rem 1rem; font-size:.8rem;" onclick="openEmpImport()">Import Excel</button>
+              <button class="btn btn-primary" style="padding:.5rem 1rem; font-size:.8rem;" onclick="openAddEmployee()">+ Add Employee</button>
+            </div>
+          </div>
+          <div class="card-body table-wrap">
+            ${emps.length === 0 ? '<div class="empty-state">No employees found. Add your first employee!</div>' : `
+            <table>
+              <thead>
+                <tr>
+                  <th>Employee</th>
+                  <th>Department</th>
+                  <th>Role</th>
+                  <th>Joined</th>
+                  <th>Relieved</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${emps.map(e => `
+                  <tr>
+                    <td>
+                      <div class="emp-cell">
+                        <div class="emp-avatar" style="background:${e.color}">${avImg(e)}</div>
+                        <div>
+                          <div class="emp-name">${e.name}</div>
+                          <div class="emp-email">${esc(e.empCode || '')} Â· ${e.email}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="dept-tag">${e.dept}</td>
+                    <td>${e.role}</td>
+                    <td>${e.doj ? formatDate(e.doj) : 'â€”'}</td>
+                    <td>${e.relievingDate ? formatDate(e.relievingDate) : 'â€”'}</td>
+                    <td>${statusBadge(e.status)}</td>
+                    <td>
+                      <div class="btn-group">
+                        <button class="btn btn-edit" onclick="openEditEmployee('${e.id}')">Edit</button>
+                        <button class="btn btn-delete" onclick="deleteEmployee('${e.id}')">Delete</button>
+                      </div>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>`}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderLeave() {
+      const leaves = getLeaves();
+      const pending = leaves.filter(l => l.status === 'pending');
+      const approved = leaves.filter(l => l.status === 'approved');
+      const onLeave = getEmployees().filter(e => e.status === 'on-leave').length;
+
+      return `
+        <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr);">
+          <div class="stat-card">
+            <div class="stat-info"><h3>Pending Requests</h3><div class="value">${pending.length}</div></div>
+            <div class="stat-icon amber"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-info"><h3>Approved</h3><div class="value">${approved.length}</div></div>
+            <div class="stat-icon green"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-info"><h3>Currently on leave</h3><div class="value">${onLeave}</div></div>
+            <div class="stat-icon blue"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/></svg></div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:1.25rem">
+          <div class="card-header">
+            <h2>All Leave Requests</h2>
+            <button class="btn btn-primary" style="padding:.5rem 1rem; font-size:.8rem;" onclick="openAddLeave()">+ New Request</button>
+          </div>
+          <div class="card-body table-wrap">
+            ${leaves.length === 0 ? '<div class="empty-state">No leave requests yet</div>' : `
+            <table>
+              <thead>
+                <tr><th>Employee</th><th>Type</th><th>Dates</th><th>Days</th><th>Status</th><th>Actions</th></tr>
+              </thead>
+              <tbody>
+                ${leaves.map(l => {
+                  const emp = findEmployee(l.empId);
+                  return `
+                  <tr>
+                    <td>
+                      <div class="emp-cell">
+                        <div class="emp-avatar" style="background:${emp?.color || '#64748b'}">${avImg(emp)}</div>
+                        <div class="emp-name">${emp?.name || 'Unknown'}</div>
+                      </div>
+                    </td>
+                    <td>${l.type}</td>
+                    <td class="dept-tag">${formatDate(l.from)} â€“ ${formatDate(l.to)}</td>
+                    <td>${daysBetween(l.from, l.to)}</td>
+                    <td>${statusBadge(l.status)}</td>
+                    <td>
+                      <div class="btn-group">
+                        ${l.status === 'pending' ? `
+                          <button class="btn btn-approve" onclick="updateLeaveStatus('${l.id}','approved')">Approve</button>
+                          <button class="btn btn-reject" onclick="updateLeaveStatus('${l.id}','rejected')">Reject</button>
+                        ` : ''}
+                        <button class="btn btn-secondary" onclick="openLeaveLetter('${l.id}','leave')">Letter</button>
+                        ${l.status === 'approved' ? `<button class="btn btn-secondary" onclick="openLeaveLetter('${l.id}','leave-approved')">Approval Letter</button>` : ''}
+                        <button class="btn btn-delete" onclick="deleteLeave('${l.id}')">Delete</button>
+                      </div>
+                    </td>
+                  </tr>`;
+                }).join('')}
+              </tbody>
+            </table>`}
+          </div>
+        </div>
+      `;
+    }
+
+    // Attendance status values used across the HRMS (Mark Attendance, eSSL import, payroll)
+    const ATT_STATUSES = [['present', 'Present'], ['absent', 'Absent'], ['half-day', 'Half Day'], ['late', 'Late'], ['leave', 'Leave'], ['od', 'On Duty (OD)'], ['holiday', 'Holiday']];
+
+    function setAttStatus(id, status) {
+      if (!isHR() || !ATT_STATUSES.some(([v]) => v === status)) return;
+      const list = getAttendance();
+      const rec = list.find(a => a.id === id);
+      if (!rec || rec.status === status) return;
+      if (status === 'od') { openOd(rec.empId, rec.date); refreshCurrentPage(); return; }
+      const before = rec.status;
+      rec.status = status;
+      if (before === 'od') delete rec.od;
+      if (status === 'holiday') { rec.inTime = ''; rec.outTime = ''; }
+      else if (status === 'present' && !rec.inTime && !rec.outTime) { const o = officeCfg(); rec.inTime = o.open; rec.outTime = o.close; }
+      rec.updatedAt = new Date().toISOString();
+      setAttendance(list);
+      const emp = findEmployee(rec.empId);
+      const label = v => (ATT_STATUSES.find(([k]) => k === v) || [v, v])[1];
+      addActivity(`Attendance for <strong>${esc(emp?.name)}</strong> on ${formatDate(rec.date)} changed: ${label(before)} â†’ ${label(status)}`, status === 'absent' ? 'red' : 'blue');
+      showToast('Status updated to ' + label(status), 'success');
+      refreshCurrentPage();
+    }
+
+    function attHours(a) {
+      const o = officeCfg(), i = hmToMin(a.inTime), t = hmToMin(a.outTime);
+      const flags = [];
+      if (i != null && i > o.openMin + o.grace) flags.push('Late in');
+      if (i != null && t != null && t < o.closeMin - o.grace) flags.push('Early out');
+      if (permsOn(a.empId, a.date).some(p => p.status === 'approved')) { flags.length = 0; flags.push('On permission'); }
+      if (i == null || t == null || t <= i) return flags.length ? `<span style="color:#d97706">${flags.join(', ')}</span>` : 'â€”';
+      return fmtDur(officeNetMin(i, t)) + (flags.length ? `<div style="color:#d97706">${flags.join(', ')}</div>` : '');
+    }
+
+    function setAttTime(id, field, value) {
+      if (!isHR() || (field !== 'inTime' && field !== 'outTime')) return;
+      const list = getAttendance();
+      const rec = list.find(a => a.id === id);
+      if (!rec || rec.status === 'holiday') return;
+      const next = { ...rec, [field]: value };
+      if (next.inTime && next.outTime && next.outTime < next.inTime) {
+        showToast('Out time cannot be earlier than In time', 'error');
+        refreshCurrentPage();
+        return;
+      }
+      rec[field] = value;
+      rec.updatedAt = new Date().toISOString();
+      setAttendance(list);
+      const emp = findEmployee(rec.empId);
+      addActivity(`${field === 'inTime' ? 'In' : 'Out'} time for <strong>${esc(emp?.name)}</strong> on ${formatDate(rec.date)} set to ${value || 'blank'}`, 'blue');
+      showToast((field === 'inTime' ? 'In' : 'Out') + ' time saved', 'success');
+      refreshCurrentPage();
+    }
+
+    // Date chosen on the Attendance page; the list shows only this date
+    let attViewDate = ISO(new Date());
+
+    function setAttViewDate(v) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return;
+      attViewDate = v;
+      refreshCurrentPage();
+    }
+
+    // Active employees on the roll for a date (joined on/before, not relieved before it)
+    function attEmployeesFor(iso) {
+      return getEmployees().filter(e => e.status !== 'inactive' && !(e.doj && iso < e.doj) && !(e.relievingDate && iso > e.relievingDate));
+    }
+
+    // Mark attendance for one employee on the selected date straight from the list
+    function markAttFor(empId, status) {
+      if (!isHR() || !status || !ATT_STATUSES.some(([v]) => v === status)) return;
+      if (status === 'od') { openOd(empId, attViewDate); refreshCurrentPage(); return; }
+      const list = getAttendance().filter(a => !(a.empId === empId && a.date === attViewDate));
+      list.unshift({ id: uid(), empId, date: attViewDate, status, inTime: '', outTime: '', source: 'Manual', createdAt: new Date().toISOString() });
+      setAttendance(list);
+      const emp = findEmployee(empId);
+      addActivity(`Attendance marked for <strong>${esc(emp?.name)}</strong> on ${formatDate(attViewDate)}: ${status}`, status === 'absent' ? 'red' : 'green');
+      showToast('Attendance saved', 'success');
+      refreshCurrentPage();
+    }
+
+    // Default for a date that has no record yet: Present with In = opening and Out = closing time.
+    // Off days (week-off / National / Festival holiday) default to Holiday with no times; approved leave defaults to Leave.
+    // Future dates are left unmarked. Existing records are never changed.
+    function ensureAttendanceDefaults(iso) {
+      if (!isHR() || iso > ISO(new Date())) return;
+      const emps = attEmployeesFor(iso);
+      const list = getAttendance();
+      const have = new Set(list.filter(a => a.date === iso).map(a => a.empId));
+      const todo = emps.filter(e => !have.has(e.id));
+      if (!todo.length) return;
+      const off = dayOffInfo(iso).off, o = officeCfg(), now = new Date().toISOString();
+      const leaves = getLeaves().filter(l => l.status === 'approved' && l.from <= iso && iso <= l.to);
+      todo.forEach(e => {
+        let status = 'present', inTime = o.open, outTime = o.close;
+        if (off) { status = 'holiday'; inTime = ''; outTime = ''; }
+        else if (leaves.some(l => l.empId === e.id)) { status = 'leave'; inTime = ''; outTime = ''; }
+        list.unshift({ id: uid(), empId: e.id, date: iso, status, inTime, outTime, source: 'Default', createdAt: now });
+      });
+      setAttendance(list);
+    }
+
+    function renderAttendance() {
+      ensureAttendanceDefaults(attViewDate);
+      const date = attViewDate;
+      const info = dayOffInfo(date);
+      const byEmp = {};
+      getAttendance().filter(a => a.date === date).forEach(a => { byEmp[a.empId] = a; });
+      // Employees on the roll for this date, plus anyone who already has a record that day
+      const rows = attEmployeesFor(date).map(e => ({ emp: e, rec: byEmp[e.id] || null }));
+      Object.values(byEmp).forEach(a => { if (!rows.some(r => r.emp.id === a.empId)) { const e = findEmployee(a.empId); if (e) rows.push({ emp: e, rec: a }); } });
+      const marked = rows.filter(r => r.rec).length;
+      const cnt = st => rows.filter(r => r.rec && r.rec.status === st).length;
+      const dayName = new Date(date + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'long' });
+
+      return `
+        ${renderFaceReview()}
+        ${renderLateApprovals()}
+        <div class="card">
+          <div class="card-header">
+            <h2>Attendance Records</h2>
+            <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;">
+              <input type="date" id="attViewDate" value="${date}" aria-label="Attendance date" onchange="setAttViewDate(this.value)" style="padding:.4rem .6rem; border:1px solid var(--border); border-radius:8px; font-family:inherit; font-size:.8rem;" />
+              <button class="btn btn-secondary" style="padding:.5rem 1rem; font-size:.8rem;" onclick="applyHolidayRules()">Mark Holidays &amp; Week-offs</button>
+              <button class="btn btn-secondary" style="padding:.5rem 1rem; font-size:.8rem;" onclick="openEsslImport()">Import eSSL Biometric</button>
+              <button class="btn btn-primary" style="padding:.5rem 1rem; font-size:.8rem;" onclick="openMarkAttendance()">+ Mark Attendance</button>
+            </div>
+          </div>
+          <div class="card-body table-wrap">
+            <div style="padding:.75rem 1rem; background:#f8fafc; line-height:1.7; font-size:.85rem;">
+              <strong>${formatDate(date)}</strong> Â· ${dayName}
+              ${info.label ? ` Â· <span class="hol-type ${info.kind}">${esc(info.label)}</span>` : ''}
+              <div class="dept-tag">${marked} of ${rows.length} marked Â· Present ${cnt('present')}, Late ${cnt('late')}, Half Day ${cnt('half-day')}, Absent ${cnt('absent')}, Leave ${cnt('leave')}, Holiday ${cnt('holiday')}</div>
+              <div class="dept-tag">Off days rule: <strong>${weekoffSummary()}</strong>. Change in Settings &rarr; Holidays &amp; Week-offs.</div>
+            </div>
+            ${rows.length === 0 ? '<div class="empty-state">No employees on the roll for this date.</div>' : `
+            <table>
+              <thead>
+                <tr><th>Employee</th><th>Status</th><th>In Time</th><th>Out Time</th><th>Worked (excl. lunch)</th><th>Source</th><th>OD / Permission</th></tr>
+              </thead>
+              <tbody>
+                ${rows.map(({ emp, rec: a }) => `
+                  <tr>
+                    <td>
+                      <div class="emp-cell">
+                        <div class="emp-avatar" style="background:${emp.color || '#64748b'}">${avImg(emp)}</div>
+                        <div>
+                          <div class="emp-name">${esc(emp.name)}</div>
+                          <div class="emp-email">${esc(emp.empCode || '')}</div>
+                        </div>
+                      </div>
+                    </td>
+                    ${a ? `
+                    <td>
+                      <select class="att-status ${esc(a.status)}" aria-label="Attendance status" onchange="setAttStatus('${a.id}', this.value)">
+                        ${ATT_STATUSES.map(([v, l]) => `<option value="${v}"${a.status === v ? ' selected' : ''}>${l}</option>`).join('')}
+                      </select>
+                    </td>
+                    <td><input type="time" class="att-time" aria-label="In time" value="${a.inTime || ''}" onchange="setAttTime('${a.id}', 'inTime', this.value)" ${a.status === 'holiday' || a.status === 'od' ? 'disabled' : ''} /></td>
+                    <td><input type="time" class="att-time" aria-label="Out time" value="${a.outTime || ''}" onchange="setAttTime('${a.id}', 'outTime', this.value)" ${a.status === 'holiday' || a.status === 'od' ? 'disabled' : ''} /></td>
+                    <td class="dept-tag">${attHours(a)}</td>
+                    <td class="dept-tag">${a.source || 'Manual'}</td>
+                    <td class="dept-tag">${attExtra(emp.id, date, a)}</td>` : `
+                    <td>
+                      <select class="att-status" aria-label="Mark attendance" onchange="markAttFor('${emp.id}', this.value)" ${isHR() ? '' : 'disabled'}>
+                        <option value="">Not marked</option>
+                        ${ATT_STATUSES.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}
+                      </select>
+                    </td>
+                    <td class="dept-tag">â€”</td><td class="dept-tag">â€”</td><td class="dept-tag">â€”</td><td class="dept-tag">â€”</td><td class="dept-tag">${attExtra(emp.id, date, null)}</td>`}
+                  </tr>`).join('')}
+              </tbody>
+            </table>`}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderSettings() {
+      const empCount = getEmployees().length;
+      const leaveCount = getLeaves().length;
+      const attCount = getAttendance().length;
+
+      return `
+        ${renderOfficeCard()}
+        ${renderHolidayCard()}
+        ${renderPermPolicyCard()}
+        ${renderPopupCard()}
+        ${renderSelfieCard()}
+        ${renderFaceCard()}
+        ${renderBioCard()}
+        <div class="card" style="max-width:560px">
+          <div class="card-header"><h2>Data & Storage</h2></div>
+          <div class="card-body" style="padding:1.5rem">
+            <p style="font-size:.875rem; color:var(--text-muted); margin-bottom:1.25rem">
+              All data is stored in your browser's <strong>localStorage</strong>. It persists across reloads but is specific to this browser and device.
+            </p>
+            <div style="display:grid; gap:.75rem; margin-bottom:1.5rem">
+              <div style="display:flex; justify-content:space-between; padding:.75rem 1rem; background:#f8fafc; border-radius:8px; font-size:.875rem">
+                <span>Employees</span><strong>${empCount}</strong>
+              </div>
+              <div style="display:flex; justify-content:space-between; padding:.75rem 1rem; background:#f8fafc; border-radius:8px; font-size:.875rem">
+                <span>Leave Requests</span><strong>${leaveCount}</strong>
+              </div>
+              <div style="display:flex; justify-content:space-between; padding:.75rem 1rem; background:#f8fafc; border-radius:8px; font-size:.875rem">
+                <span>Attendance Records</span><strong>${attCount}</strong>
+              </div>
+            </div>
+            <button class="btn btn-delete" style="padding:.6rem 1.2rem; font-size:.85rem; width:100%" onclick="clearAllData()">
+              Clear All Data & Reset to Sample
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    function clearAllData() {
+      if (!confirm('This will delete ALL your data and restore sample employees. Continue?')) return;
+      localStorage.removeItem(STORAGE_KEYS.employees);
+      localStorage.removeItem(STORAGE_KEYS.leaves);
+      localStorage.removeItem(STORAGE_KEYS.attendance);
+      localStorage.removeItem(STORAGE_KEYS.activities);
+      localStorage.removeItem(STORAGE_KEYS.salaries);
+      localStorage.removeItem(STORAGE_KEYS.ctc);
+      localStorage.removeItem(STORAGE_KEYS.payruns);
+      localStorage.removeItem(STORAGE_KEYS.letters);
+      localStorage.removeItem(STORAGE_KEYS.resignations);
+      localStorage.removeItem(STORAGE_KEYS.forwards);
+      [STORAGE_KEYS.payCfg, STORAGE_KEYS.stat, STORAGE_KEYS.bio, STORAGE_KEYS.bioCfg, STORAGE_KEYS.privs, STORAGE_KEYS.service, STORAGE_KEYS.photos, STORAGE_KEYS.geo, STORAGE_KEYS.selfies, STORAGE_KEYS.popups, STORAGE_KEYS.popupSeen, STORAGE_KEYS.recJobs, STORAGE_KEYS.recCands, STORAGE_KEYS.perfCycles, STORAGE_KEYS.perfGoals, STORAGE_KEYS.perfReviews].forEach(k => localStorage.removeItem(k));
+      seedIfEmpty(); migrateEmployees(); migrateCTC();
+      showToast('Data reset to sample', 'success');
+      updateLeaveBadge();
+      refreshCurrentPage();
+    }
+
+
+    // ========== RESIGNATION ==========
+    function getResignations() { return load(STORAGE_KEYS.resignations) || []; }
+    function setResignations(list) { save(STORAGE_KEYS.resignations, list); }
+    function activeResignation(empId) {
+      const emp = findEmployee(empId);
+      return getResignations().filter(r => r.empId === empId && (r.status === 'pending' || r.status === 'accepted') && !(emp?.doj && (r.approvedLWD || r.lastWorkingDate || '') < emp.doj)).slice(-1)[0] || null;
+    }
+    function updateResignBadge() {
+      const n = getResignations().filter(r => r.status === 'pending').length;
+      const b = document.getElementById('resignBadge');
+      if (!b) return;
+      b.textContent = n; b.style.display = n > 0 ? 'inline-flex' : 'none';
+    }
+    function resBadge(st) {
+      const m = { pending: ['pending', 'Pending HR'], accepted: ['approved', 'Accepted'], rejected: ['rejected', 'Rejected'], withdrawn: ['inactive', 'Withdrawn'] }[st] || ['pending', st];
+      return `<span class="badge ${m[0]}">${m[1]}</span>`;
+    }
+
+    function openResign() {
+      const sel = document.getElementById('resEmpId');
+      sel.innerHTML = getEmployees().filter(e => isHR() ? e.status !== 'inactive' : e.id === session.empId).map(e =>
+        `<option value="${e.id}">${esc(e.name)} (${esc(e.empCode || '')})</option>`).join('');
+      sel.disabled = !isHR();
+      document.getElementById('resForm').reset();
+      const today = new Date().toISOString().slice(0, 10);
+      document.getElementById('resDate').value = today;
+      document.getElementById('resNotice').value = 30;
+      document.getElementById('resLWD').value = addDaysISO(today, 30);
+      openModal('resModal');
+    }
+
+    function resSync(which) {
+      const d = document.getElementById('resDate'), n = document.getElementById('resNotice'), l = document.getElementById('resLWD');
+      if (which === 'lwd') { if (d.value && l.value) n.value = Math.max(0, Math.round((Date.parse(l.value) - Date.parse(d.value)) / 864e5)); }
+      else if (d.value && n.value !== '') l.value = addDaysISO(d.value, parseInt(n.value, 10) || 0);
+    }
+
+    function saveResign(ev) {
+      ev.preventDefault();
+      const empId = isHR() ? document.getElementById('resEmpId').value : session.empId;
+      const date = document.getElementById('resDate').value;
+      const lwd = document.getElementById('resLWD').value;
+      const notice = parseInt(document.getElementById('resNotice').value, 10) || 0;
+      if (!empId || !date || !lwd) return;
+      if (lwd < date) { showToast('Last working date cannot be before the notice date', 'error'); return; }
+      if (activeResignation(empId)) { showToast('A resignation is already open for this employee', 'error'); return; }
+      const emp = findEmployee(empId);
+      const list = getResignations();
+      list.push({ id: uid(), empId, noticeDate: date, noticeDays: notice, lastWorkingDate: lwd,
+        reason: document.getElementById('resReason').value.trim(), status: 'pending',
+        submittedBy: isHR() ? 'hr' : 'employee', createdAt: new Date().toISOString() });
+      setResignations(list);
+      addActivity(`Resignation submitted by <strong>${esc(emp?.name)}</strong> (last working date ${formatDate(lwd)})`, 'red');
+      showToast(isHR() ? 'Resignation recorded (pending approval)' : 'Resignation sent to HR for approval', 'success');
+      closeModal('resModal');
+      updateLeaveBadge();
+      refreshCurrentPage();
+    }
+
+    function withdrawResign(id) {
+      const r = getResignations().find(x => x.id === id);
+      if (!r || r.status !== 'pending' || (!isHR() && r.empId !== session.empId)) return;
+      if (!confirm('Withdraw this resignation?')) return;
+      r.status = 'withdrawn'; r.decidedAt = new Date().toISOString();
+      setResignations(getResignations().map(x => x.id === id ? r : x));
+      showToast('Resignation withdrawn', 'success');
+      updateLeaveBadge();
+      refreshCurrentPage();
+    }
+
+    function openResignDecision(id) {
+      if (!isHR()) return;
+      const r = getResignations().find(x => x.id === id);
+      if (!r) return;
+      const emp = findEmployee(r.empId);
+      document.getElementById('resDecId').value = id;
+      document.getElementById('resDecLWD').value = r.approvedLWD || r.lastWorkingDate;
+      document.getElementById('resDecRemarks').value = r.hrRemarks || '';
+      document.getElementById('resDecInfo').innerHTML =
+        `<strong>${esc(emp?.name)}</strong> (${esc(emp?.empCode || '')}) â€“ ${esc(emp?.role || '')}<br>
+         Notice date: ${formatDate(r.noticeDate)} Â· Notice period: ${r.noticeDays} days Â· Proposed last working date: <strong>${formatDate(r.lastWorkingDate)}</strong><br>
+         Reason: ${esc(r.reason) || 'â€”'}`;
+      openModal('resDecModal');
+    }
+
+    function decideResign(status) {
+      if (!isHR()) return;
+      const id = document.getElementById('resDecId').value;
+      const list = getResignations();
+      const r = list.find(x => x.id === id);
+      if (!r) return;
+      const lwd = document.getElementById('resDecLWD').value;
+      if (status === 'accepted' && !lwd) { showToast('Enter the approved last working date', 'error'); return; }
+      r.status = status;
+      r.hrRemarks = document.getElementById('resDecRemarks').value.trim();
+      r.decidedAt = new Date().toISOString();
+      if (status === 'accepted') r.approvedLWD = lwd;
+      setResignations(list);
+      const emp = findEmployee(r.empId);
+      addActivity(`Resignation of <strong>${esc(emp?.name)}</strong> ${status}`, status === 'accepted' ? 'green' : 'red');
+      showToast(status === 'accepted' ? 'Resignation accepted. Salary now pays pro-rata to the last working date' : 'Resignation rejected', 'success');
+      closeModal('resDecModal');
+      updateLeaveBadge();
+      refreshCurrentPage();
+    }
+
+    function resImpact(r) {
+      if (r.status === 'pending') return '<span class="dept-tag">Salary on hold</span>';
+      if (r.status === 'accepted') return `<span class="dept-tag">Pro-rata till ${formatDate(r.approvedLWD || r.lastWorkingDate)}</span>`;
+      return '<span class="dept-tag">â€”</span>';
+    }
+
+    function renderResign() {
+      const all = getResignations().slice().reverse();
+      const n = st => all.filter(r => r.status === st).length;
+      const stat = (label, v, cls) => `<div class="stat-card"><div class="stat-info"><h3>${label}</h3><div class="value">${v}</div></div><div class="stat-icon ${cls}"></div></div>`;
+      return `
+        <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr);">
+          ${stat('Pending HR Approval', n('pending'), 'amber')}
+          ${stat('Accepted (serving notice / exited)', n('accepted'), 'green')}
+          ${stat('Rejected / Withdrawn', n('rejected') + n('withdrawn'), 'purple')}
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h2>Resignations</h2>
+            <button class="btn btn-primary" style="padding:.5rem 1rem; font-size:.8rem;" onclick="openResign()">+ Record Resignation</button>
+          </div>
+          <div class="card-body table-wrap">
+            ${all.length === 0 ? '<div class="empty-state">No resignations submitted</div>' : `
+            <table>
+              <thead><tr><th>Employee</th><th>Notice Date</th><th>Notice</th><th>Last Working Date</th><th>Reason</th><th>Status</th><th>Payroll</th><th>Action</th></tr></thead>
+              <tbody>
+                ${all.map(r => {
+                  const emp = findEmployee(r.empId);
+                  const lwd = r.status === 'accepted' ? (r.approvedLWD || r.lastWorkingDate) : r.lastWorkingDate;
+                  return `
+                  <tr>
+                    <td><div class="emp-cell"><div class="emp-avatar" style="background:${emp?.color || '#64748b'}">${avImg(emp)}</div><div class="emp-name">${esc(emp?.name || 'Unknown')}</div></div></td>
+                    <td class="dept-tag">${formatDate(r.noticeDate)}</td>
+                    <td>${r.noticeDays} days</td>
+                    <td>${formatDate(lwd)}${r.status === 'accepted' && r.approvedLWD && r.approvedLWD !== r.lastWorkingDate ? `<div class="dept-tag">Proposed ${formatDate(r.lastWorkingDate)}</div>` : ''}</td>
+                    <td class="dept-tag">${esc(r.reason) || 'â€”'}${r.hrRemarks ? `<div>HR: ${esc(r.hrRemarks)}</div>` : ''}</td>
+                    <td>${resBadge(r.status)}${r.decidedAt ? `<div class="dept-tag">${formatDate(r.decidedAt)}</div>` : ''}</td>
+                    <td>${resImpact(r)}</td>
+                    <td><div class="btn-group">
+                      ${r.status === 'pending' ? `<button class="btn btn-primary" onclick="openResignDecision('${r.id}')">Review</button><button class="btn btn-delete" onclick="withdrawResign('${r.id}')">Withdraw</button>` : ''}
+                      ${r.status === 'accepted' ? `<button class="btn btn-secondary" onclick="openResignDecision('${r.id}')">Change LWD</button>` : ''}
+                    </div></td>
+                  </tr>`;
+                }).join('')}
+              </tbody>
+            </table>`}
+          </div>
+        </div>`;
+    }
+
+    function renderMyResign() {
+      const mine = getResignations().filter(r => r.empId === session?.empId).slice().reverse();
+      const active = activeResignation(session?.empId);
+      return `
+        <div class="card">
+          <div class="card-header">
+            <h2>My Resignation</h2>
+            ${active ? '' : '<button class="btn btn-primary" style="padding:.5rem 1rem; font-size:.8rem;" onclick="openResign()">Submit Resignation</button>'}
+          </div>
+          <div class="card-body table-wrap">
+            ${mine.length === 0 ? '<div class="empty-state">You have not submitted a resignation.</div>' : `
+            <table>
+              <thead><tr><th>Notice Date</th><th>Notice</th><th>Last Working Date</th><th>Status</th><th>Salary</th><th>Action</th></tr></thead>
+              <tbody>
+                ${mine.map(r => `
+                  <tr>
+                    <td class="dept-tag">${formatDate(r.noticeDate)}</td>
+                    <td>${r.noticeDays} days</td>
+                    <td>${formatDate(r.status === 'accepted' ? (r.approvedLWD || r.lastWorkingDate) : r.lastWorkingDate)}</td>
+                    <td>${resBadge(r.status)}${r.hrRemarks ? `<div class="dept-tag">HR: ${esc(r.hrRemarks)}</div>` : ''}</td>
+                    <td>${resImpact(r)}</td>
+                    <td>${r.status === 'pending' ? `<button class="btn btn-delete" onclick="withdrawResign('${r.id}')">Withdraw</button>` : ''}</td>
+                  </tr>`).join('')}
+              </tbody>
+            </table>`}
+          </div>
+        </div>
+        <p class="dept-tag" style="padding:1rem 0; line-height:1.6;">Your salary is held while the resignation is pending. After HR accepts it, salary is paid pro-rata up to your approved last working date.</p>`;
+    }
+
+    // ========== PAYROLL (Standard Payroll Structure) ==========
+    let payMonth = new Date().toISOString().slice(0, 7);
+    // Rules applied to every employee. Edit these to change the structure company-wide.
+    const PAY = { basicPct: 50, hraPct: 40, conveyance: 1600, epfPct: 12, gratuityPct: 4.81, stdDeduction: 75000 };
+    // Statutory settings (verified Oct 2026): EPF ceiling Rs 25,000 from 17 Sep 2026 (Rs 15,000 before); ESI ceiling Rs 21,000, 0.75% + 3.25%;
+    // EPS 8.33% (on wages up to the ceiling), EDLI 0.5%, EPF admin 0.5%; Telangana LWF Rs 2 + Rs 5 (December).
+    const PAYCFG_DEFAULT = { pfOnActual: false, ctcAdmin: true, esiOn: true, lwfOn: false, edliOn: true };
+    const payCfg = () => ({ ...PAYCFG_DEFAULT, ...(load(STORAGE_KEYS.payCfg) || {}) });
+    const getStat = () => load(STORAGE_KEYS.stat) || {};
+    const ESI_LIMIT = 21000, ESI_LIMIT_DIS = 25000;
+    // PF wage ceiling by month; September 2026 straddles the change (1-16 Sep Rs 15,000, 17-30 Sep Rs 25,000)
+    const pfCeiling = month => (month || '9999') < '2026-09' ? 15000 : month === '2026-09' ? Math.round((15000 * 16 + 25000 * 14) / 30 * 100) / 100 : 25000;
+    const pfWageOf = (basic, month) => payCfg().pfOnActual ? basic : Math.min(basic, pfCeiling(month || localISO().slice(0, 7)));
+
+    function esc(v) { return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+    function inr(n) { return 'â‚¹' + Math.round(n).toLocaleString('en-IN'); }
+    function getSalaries() { return load(STORAGE_KEYS.salaries) || {}; }
+    function getCTCs() { return load(STORAGE_KEYS.ctc) || {}; }
+    function getPayruns() { return load(STORAGE_KEYS.payruns) || {}; }
+
+    // One-time: carry over earlier monthly salaries as CTC (x12); sample CTCs for the demo employees
+    function migrateCTC() {
+      if (load(STORAGE_KEYS.ctc)) return;
+      const old = getSalaries(), ctc = {};
+      const sample = [1800000, 1200000, 1000000, 600000, 720000, 500000];
+      getEmployees().forEach((e, i) => { ctc[e.id] = old[e.id] ? old[e.id] * 12 : (sample[i] || 0); });
+      save(STORAGE_KEYS.ctc, ctc);
+    }
+
+    function setCTC(empId, val) {
+      const m = getCTCs();
+      m[empId] = Math.max(0, parseFloat(val) || 0);
+      save(STORAGE_KEYS.ctc, m);
+      refreshCurrentPage();
+    }
+
+    function setPayMonth(m) { if (m) { payMonth = m; refreshCurrentPage(); } }
+
+    // Monthly breakup from annual CTC: Basic 50% of CTC, HRA 40% of Basic, fixed conveyance,
+    // Employer EPF 12% and Gratuity 4.81% of Basic, Special Allowance = balancing figure
+    function structure(annualCTC) {
+      const ctc = Math.round(annualCTC / 12);
+      if (ctc <= 0) return { ctc: 0, basic: 0, hra: 0, conv: 0, special: 0, gross: 0, erEpf: 0, grat: 0, eeEpf: 0, erEdli: 0, erAdmin: 0 };
+      const basic = Math.round(ctc * PAY.basicPct / 100);
+      const hra = Math.round(basic * PAY.hraPct / 100);
+      const conv = PAY.conveyance;
+      const erEpf = Math.round(pfWageOf(basic) * PAY.epfPct / 100);
+      const grat = Math.round(basic * PAY.gratuityPct / 100);
+      const pfw0 = pfWageOf(basic), cc = payCfg();
+      const erEdli = cc.ctcAdmin && cc.edliOn ? Math.round(Math.min(pfw0, pfCeiling(localISO().slice(0, 7))) * 0.005) : 0, erAdmin = cc.ctcAdmin ? Math.round(pfw0 * 0.005) : 0;
+      const special = Math.max(0, ctc - basic - hra - conv - erEpf - grat - erEdli - erAdmin);
+      return { ctc, basic, hra, conv, special, gross: basic + hra + conv + special, erEpf, grat, eeEpf: erEpf, erEdli, erAdmin };
+    }
+
+    // Telangana Professional Tax (monthly slab)
+    function ptFor(monthlyGross) { return monthlyGross <= 15000 ? 0 : (monthlyGross <= 20000 ? 150 : 200); }
+
+    // TDS on salary, new tax regime FY 2026-27: Rs 75,000 std deduction, 87A rebate to Rs 12L (with marginal relief), 4% cess
+    function newRegimeTax(taxable) {
+      const slabs = [[400000, 0], [800000, .05], [1200000, .10], [1600000, .15], [2000000, .20], [2400000, .25], [Infinity, .30]];
+      let tax = 0, prev = 0;
+      for (const [lim, r] of slabs) { if (taxable > prev) tax += (Math.min(taxable, lim) - prev) * r; prev = lim; }
+      tax = taxable <= 1200000 ? 0 : Math.min(tax, taxable - 1200000);
+      const sur = taxable > 20000000 ? .25 : taxable > 10000000 ? .15 : taxable > 5000000 ? .10 : 0;   // no marginal relief
+      return Math.round(tax * (1 + sur) * 1.04);
+    }
+    function monthlyTDS(monthlyGross) { return Math.round(newRegimeTax(Math.max(0, monthlyGross * 12 - PAY.stdDeduction)) / 12); }
+
+    function getForwards() { return load(STORAGE_KEYS.forwards) || []; }
+    function nextMonthOf(m) { const [y, mo] = m.split('-').map(Number); const d = new Date(y, mo, 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); }
+    function monthLabel(m) { const [y, mo] = m.split('-').map(Number); return new Date(y, mo - 1, 1).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }); }
+    function carryInFor(empId, month) { return getForwards().filter(f => f.empId === empId && f.toMonth === month).reduce((t, f) => t + f.amount, 0); }
+
+    // Resignation rules: pending = salary on hold; accepted = pro-rata up to last working date (30-day basis, same as LOP);
+    // months after an accepted last working date carry no salary.
+    // PF / EPS / EDLI / admin / ESI / LWF for one employee-month (PF on wages actually earned, i.e. after loss of pay)
+    function esiCarried(empId, month) {
+      const y = +month.slice(0, 4), m = +month.slice(5, 7), runs = getPayruns();
+      let cy = m >= 4 ? y : y - 1, cm = (m >= 4 && m <= 9) ? 4 : 10;
+      for (;;) {
+        const mo = cy + '-' + String(cm).padStart(2, '0'); if (mo >= month) return false;
+        if (runs[mo] && (runs[mo].rows || []).some(r => r.empId === empId && r.esiWages > 0)) return true;
+        if (++cm > 12) { cm = 1; cy++; }
+      }
+    }
+    function statCalc(empId, month, st, unpaidDays, earned) {
+      const cfg = payCfg(), t = getStat()[empId] || {}, cap = pfCeiling(month);
+      const basicE = st.basic ? Math.round(st.basic * (30 - Math.min(30, unpaidDays)) / 30) : 0;
+      const pfw = t.pfOff ? 0 : pfWageOf(basicE, month), capW = Math.min(pfw, cap);
+      const eeEpf = Math.round(pfw * PAY.epfPct / 100), eps = Math.round(capW * 0.0833);
+      // Once covered, ESI continues for the whole contribution period (Apr-Sep / Oct-Mar) even if wages cross the limit
+      const esiOn = cfg.esiOn && !t.esiOff && st.gross > 0 && earned > 0 && (st.gross <= (t.disabled ? ESI_LIMIT_DIS : ESI_LIMIT) || esiCarried(empId, month));
+      const esiEe = esiOn && (st.gross / 30 > 176) ? Math.ceil(earned * 0.0075) : 0, esiEr = esiOn ? Math.ceil(earned * 0.0325) : 0;
+      const lwf = cfg.lwfOn && month.slice(5) === '12' && earned > 0;
+      return { basicE, pfWages: pfw, epsWages: capW, eeEpf, eps, erEpfShare: eeEpf - eps, edli: cfg.edliOn ? Math.round(capW * 0.005) : 0, pfAdmin: Math.round(pfw * 0.005), esiWages: esiOn ? earned : 0, esiEe, esiEr, lwfEe: lwf ? 2 : 0, lwfEr: lwf ? 5 : 0 };
+    }
+    function calcPay(emp, month, noSalary) {
+      const r = activeResignation(emp.id);
+      const lwd = r ? (r.status === 'accepted' ? (r.approvedLWD || r.lastWorkingDate) : r.lastWorkingDate) : '';
+      const exited = !!noSalary || (!!r && r.status === 'accepted' && !!lwd && lwd.slice(0, 7) < month);
+      const lwdDay = (!exited && lwd && lwd.slice(0, 7) === month) ? +lwd.slice(8, 10) : 0;
+      const dim = new Date(+month.slice(0, 4), +month.slice(5, 7), 0).getDate();
+      const ctcA = getCTCs()[emp.id] || 0;
+      const st = structure(exited ? 0 : ctcA);
+      let att = getAttendance().filter(a => a.empId === emp.id && a.date && a.date.startsWith(month));
+      if (lwdDay) att = att.filter(a => +a.date.slice(8, 10) <= lwdDay);
+      const absentDays = att.filter(a => a.status === 'absent').length + att.filter(a => a.status === 'half-day').length * 0.5;
+      const exitDays = (lwdDay && lwdDay < dim) ? Math.max(0, 30 - Math.min(lwdDay, 30)) : 0;
+      const permDays = permLopDays(emp.id, month);
+      const unpaidDays = Math.round(Math.min(30, absentDays + exitDays + permDays) * 100) / 100;
+      const lop = Math.round(st.gross / 30 * unpaidDays);
+      const earned = st.gross - lop;
+      const pt = earned > 0 ? ptFor(earned) : 0;
+      const tds = tdsFor(emp.id, month, st);
+      const ex = exited ? { bonus: 0, enc: 0, arr: 0, arrDed: 0, ot: 0, otHrs: 0, total: 0 } : extraFor(emp.id, month, st.basic);
+      const tdsX = ex.total ? tdsOnExtra(st.gross, ex.total, emp.id, month, st) : 0;
+      const sx = statCalc(emp.id, month, st, unpaidDays, earned + ex.ot);
+      const holdReason = (!exited && r && r.status === 'pending') ? 'Resignation pending HR approval' : '';
+      return { empId: emp.id, name: emp.name, ctcA, ...st, unpaidDays, permDays, exitDays, lwd: lwdDay ? lwd : '', exited, holdReason, lop, earned, pt, tds, tdsX, exBonus: ex.bonus, exEnc: ex.enc, exArr: ex.arr, exArrDed: ex.arrDed, exOt: ex.ot, exOtHrs: ex.otHrs, extra: ex.total, ...sx, net: earned + ex.total - ex.arrDed - sx.eeEpf - sx.esiEe - pt - tds - tdsX - sx.lwfEe };
+    }
+
+    // Adds pay status on top of a computed or processed row: pay / hold (resignation pending) / forward (moved to next month)
+    function payState(r, month) {
+      const fw = getForwards().find(f => f.empId === r.empId && f.fromMonth === month) || null;
+      const carryIn = carryInFor(r.empId, month);
+      const payStatus = fw ? 'forward' : (r.holdReason ? 'hold' : 'pay');
+      return { ...r, carryIn, fwd: fw, payStatus, payable: payStatus === 'pay' ? r.net + carryIn : 0, unpaid: payStatus === 'pay' ? 0 : r.net + carryIn };
+    }
+
+    function payRows(run) {
+      if (run) return run.rows.map(r => payState(r, payMonth));
+      const rows = [];
+      getEmployees().forEach(e => {
+        const base = calcPay(e, payMonth);
+        if (e.status !== 'inactive' && !base.exited) rows.push(payState(base, payMonth));
+        else if (carryInFor(e.id, payMonth) > 0 || getForwards().some(f => f.empId === e.id && f.fromMonth === payMonth)) rows.push(payState(calcPay(e, payMonth, true), payMonth));
+      });
+      return rows;
+    }
+
+    function forwardSalary(empId) {
+      const runs = getPayruns();
+      const row = payRows(runs[payMonth]).find(r => r.empId === empId);
+      if (!row || row.payStatus === 'forward') return;
+      const to = nextMonthOf(payMonth);
+      if (runs[to]) { showToast('Payroll for ' + monthLabel(to) + ' is already processed', 'error'); return; }
+      if (runs[payMonth] && row.payStatus === 'pay') { showToast('Already paid in the processed payroll', 'error'); return; }
+      const amt = row.net + row.carryIn;
+      if (amt <= 0) { showToast('Nothing to forward for this employee', 'error'); return; }
+      if (!confirm(`Forward ${inr(amt)} for ${row.name} from ${monthLabel(payMonth)} to ${monthLabel(to)}?\n\nIt will not be paid this month and will be added to the ${monthLabel(to)} payroll.`)) return;
+      const list = getForwards();
+      list.push({ id: uid(), empId, fromMonth: payMonth, toMonth: to, amount: amt, reason: row.holdReason || 'Manual', at: new Date().toISOString() });
+      save(STORAGE_KEYS.forwards, list);
+      addActivity(`Salary of <strong>${esc(row.name)}</strong> forwarded from ${monthLabel(payMonth)} to ${monthLabel(to)} (${inr(amt)})`, 'blue');
+      showToast('Salary forwarded to ' + monthLabel(to), 'success');
+      refreshCurrentPage();
+    }
+
+    function undoForward(empId) {
+      const list = getForwards();
+      const fw = list.find(f => f.empId === empId && f.fromMonth === payMonth);
+      if (!fw) return;
+      if (getPayruns()[fw.toMonth]) { showToast(monthLabel(fw.toMonth) + ' payroll is already processed', 'error'); return; }
+      if (list.some(f => f.empId === empId && f.fromMonth === fw.toMonth)) { showToast('Undo the later forward first', 'error'); return; }
+      if (!confirm('Undo this forward and bring the salary back to ' + monthLabel(payMonth) + '?')) return;
+      save(STORAGE_KEYS.forwards, list.filter(f => f.id !== fw.id));
+      refreshCurrentPage();
+    }
+
+    function processPayroll() {
+      const rows = payRows(null);
+      if (!rows.some(r => r.ctcA > 0)) { showToast('Set at least one CTC first', 'error'); return; }
+      const held = rows.filter(r => r.payStatus !== 'pay');
+      if (held.length && !confirm(held.length + ' employee(s) will not be paid in this run (on hold or forwarded):\n' + held.map(r => 'â€¢ ' + r.name + (r.payStatus === 'hold' ? ' (resignation pending)' : ' (forwarded)')).join('\n') + '\n\nProcess payroll anyway?')) return;
+      const runs = getPayruns();
+      runs[payMonth] = { month: payMonth, processedAt: new Date().toISOString(), rows };
+      save(STORAGE_KEYS.payruns, runs);
+      addActivity(`Payroll processed for <strong>${payMonth}</strong>: ${inr(rows.reduce((t, r) => t + r.payable, 0))} payable`, 'green');
+      showToast('Payroll processed', 'success');
+      refreshCurrentPage();
+    }
+
+    function reopenPayroll() {
+      if (!confirm('Reopen this month? The processed snapshot will be discarded.')) return;
+      const runs = getPayruns();
+      delete runs[payMonth];
+      save(STORAGE_KEYS.payruns, runs);
+      refreshCurrentPage();
+    }
+
+    function exportPayrollCSV() {
+      const rows = payRows(getPayruns()[payMonth]);
+      const head = ['Employee','Annual CTC','Basic','HRA','Conveyance','Special Allowance','Gross','LOP','Employee EPF','Professional Tax','TDS','Net Pay','Carried In','Payable','Pay Status','Employer EPF','Gratuity'];
+      const lines = [head.join(',')].concat(rows.map(r => [`"${r.name.replace(/"/g, '""')}"`, r.ctcA, r.basic, r.hra, r.conv, r.special, r.gross, r.lop, r.eeEpf, r.pt, r.tds, r.net, r.carryIn, r.payable, r.payStatus === 'forward' ? 'Forwarded to ' + r.fwd.toMonth : (r.payStatus === 'hold' ? 'On hold' : 'Pay'), r.erEpf, r.grat].join(',')));
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([lines.join('\n')], { type: 'text/csv' }));
+      a.download = `payroll-${payMonth}.csv`;
+      a.click();
+    }
+
+    // Component / taxability table (used on the structure sheet and the appointment annexure)
+    function structureTable(annualCTC) {
+      const s = structure(annualCTC), pt = ptFor(s.gross), tds = monthlyTDS(s.gross);
+      const row = (cat, item, m, tax, cls = '') => `<tr class="${cls}"><td>${cat}</td><td>${item}</td><td class="num">${inr(m)}</td><td class="num">${inr(m * 12)}</td><td>${tax}</td></tr>`;
+      return `<table class="l-table">
+        <thead><tr><th>Category</th><th>Component</th><th>Monthly</th><th>Annual</th><th>Taxability</th></tr></thead>
+        <tbody>
+          ${row('Core Earnings', `Basic Salary (${PAY.basicPct}% of CTC)`, s.basic, 'Fully Taxable')}
+          ${row('Allowances', `House Rent Allowance (${PAY.hraPct}% of Basic)`, s.hra, 'Partially Taxable')}
+          ${row('Allowances', 'Conveyance / Transport', s.conv, 'Exempt / Partial')}
+          ${row('Allowances', 'Special / Balancing Allowance', s.special, 'Fully Taxable')}
+          ${row('', 'Gross Salary', s.gross, '', 'tot')}
+          ${row('Retirals / Benefits', `Employer EPF (${PAY.epfPct}% of Basic)`, s.erEpf, 'Non-taxable contribution')}
+          ${row('Retirals / Benefits', `Gratuity (${PAY.gratuityPct}% of Basic)`, s.grat, 'Accrued as per law')}
+          ${s.erEdli + s.erAdmin ? row('Retirals / Benefits', 'Employer EDLI + PF admin charges (0.5% + 0.5%)', s.erEdli + s.erAdmin, 'Employer cost, inside CTC') : ''}
+          ${row('', 'Cost to Company (CTC)', s.ctc, '', 'tot')}
+          ${row('Deductions', `Employee EPF (${PAY.epfPct}% of Basic)`, s.eeEpf, 'Pre-tax deduction')}
+          ${row('Deductions', 'Professional Tax (Telangana)', pt, 'Statutory deduction')}
+          ${row('Deductions', 'TDS (income slab, estimated)', tds, 'Statutory deduction')}
+          ${row('', 'Net Take-home (before LOP)', s.gross - s.eeEpf - pt - tds, '', 'tot')}
+        </tbody></table>
+        <p class="l-note">TDS is estimated under the new tax regime (FY 2026-27): â‚¹75,000 standard deduction, Section 87A rebate up to â‚¹12 lakh taxable income, 4% cess. HRA and conveyance exemptions apply only under the old regime.</p>`;
+    }
+
+    function viewStructure(empId) {
+      const e = findEmployee(empId), ctc = getCTCs()[empId] || 0;
+      if (!e || !ctc) { showToast('Set the annual CTC first', 'error'); return; }
+      document.getElementById('letterTitle').textContent = 'Salary Structure';
+      document.getElementById('letterPaper').innerHTML = letterHead() +
+        `<p><strong>${esc(e.name)}</strong> (${esc(e.empCode || '')}) â€“ ${esc(e.role)}, ${esc(e.dept)}<br>Annual CTC: <strong>${inr(ctc)}</strong></p>` + structureTable(ctc);
+      document.getElementById('letterAcceptBtn').style.display = 'none';
+      openModal('letterModal');
+    }
+
+    function renderPayroll() { return renderPayrollBase() + renderStatCard(); }
+    function renderPayrollBase() {
+      const run = getPayruns()[payMonth];
+      const locked = !!run;
+      const rows = payRows(run);
+      const holdRows = rows.filter(r => r.payStatus === 'hold');
+      const sum = k => rows.reduce((t, r) => t + (r[k] || 0), 0);
+      const stat = (label, val, cls) => `
+        <div class="stat-card"><div class="stat-info"><h3>${label}</h3><div class="value">${val}</div></div>
+        <div class="stat-icon ${cls}"><strong>â‚¹</strong></div></div>`;
+      const inputStyle = 'width:120px; padding:.4rem .6rem; border:1px solid var(--border); border-radius:8px; font-family:inherit';
+
+      return `
+        <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));">
+          ${stat('Monthly CTC', inr(sum('ctc')), 'blue')}
+          ${stat('Gross Earnings', inr(sum('earned')), 'purple')}
+          ${stat('Total Deductions', inr(sum('eeEpf') + sum('esiEe') + sum('pt') + sum('tds') + sum('lwfEe')), 'amber')}
+          ${stat('Net Payable', inr(sum('payable')), 'green')}
+          ${stat('On Hold / Forwarded', inr(sum('unpaid')), 'blue')}
+        </div>
+        ${holdRows.length ? `<div class="card" style="margin-bottom:1.25rem; border-left:4px solid #d97706;"><div class="card-body" style="font-size:.85rem; line-height:1.6;"><strong>${holdRows.length} salary on hold:</strong> ${holdRows.map(r => esc(r.name)).join(', ')} (resignation pending HR approval). Accept the resignation in Resignations to pay pro-rata, or use <em>Forward</em> to carry the salary to ${monthLabel(nextMonthOf(payMonth))}.</div></div>` : ''}
+        <div class="card">
+          <div class="card-header" style="flex-wrap:wrap; gap:.75rem">
+            <h2>Payroll â€“ <span class="badge ${locked ? 'approved' : 'pending'}">${locked ? 'Processed' : 'Draft'}</span></h2>
+            <div class="btn-group" style="align-items:center">
+              <input type="month" value="${payMonth}" onchange="setPayMonth(this.value)" style="padding:.45rem .6rem; border:1px solid var(--border); border-radius:8px; font-family:inherit" />
+              <button class="btn btn-secondary" style="padding:.5rem 1rem; font-size:.8rem" onclick="exportPayrollCSV()">Export CSV</button>
+              ${locked
+                ? `<button class="btn btn-delete" style="padding:.5rem 1rem; font-size:.8rem" onclick="reopenPayroll()">Reopen</button>`
+                : `<button class="btn btn-primary" style="padding:.5rem 1rem; font-size:.8rem" onclick="processPayroll()">Process Payroll</button>`}
+            </div>
+          </div>
+          <div class="card-body">
+            ${rows.length === 0 ? '<div class="empty-state">No employees to pay</div>' : `
+            <div class="table-wrap"><table>
+              <thead><tr><th>Employee</th><th>Annual CTC (â‚¹)</th><th>Basic</th><th>HRA</th><th>Conveyance</th><th>Special</th><th>Gross</th><th>LOP</th><th>EPF</th><th>ESI</th><th>Prof. Tax</th><th>TDS</th><th>Net Pay</th><th>Payable</th><th>Pay Status</th><th></th></tr></thead>
+              <tbody>
+                ${rows.map(r => {
+                  const emp = findEmployee(r.empId);
+                  return `
+                  <tr>
+                    <td><div class="emp-cell">
+                      <div class="emp-avatar" style="background:${emp?.color || '#64748b'}">${avImg(emp)}</div>
+                      <div class="emp-name">${esc(r.name)}</div></div></td>
+                    <td>${locked ? inr(r.ctcA) : `<input type="number" min="0" step="10000" value="${r.ctcA || ''}" placeholder="Set CTC" onchange="setCTC('${r.empId}', this.value)" style="${inputStyle}" />`}</td>
+                    <td>${inr(r.basic)}</td><td>${inr(r.hra)}</td><td>${inr(r.conv)}</td><td>${inr(r.special)}</td>
+                    <td><strong>${inr(r.gross)}</strong></td>
+                    <td>${r.lop ? inr(r.lop) + `<div class="dept-tag">${r.unpaidDays} day(s)${r.permDays ? ' Â· incl. ' + r.permDays + 'd permission excess' : ''}${r.lwd ? ' Â· exit ' + formatDate(r.lwd) : ''}</div>` : (r.exited ? '<div class="dept-tag">Exited</div>' : 'â€”')}</td>
+                    <td>${inr(r.eeEpf)}</td><td>${r.esiEe ? inr(r.esiEe) : 'â€”'}</td><td>${inr(r.pt)}${r.lwfEe ? `<div class="dept-tag">+ LWF ${inr(r.lwfEe)}</div>` : ''}</td><td>${inr(r.tds)}</td>
+                    <td>${inr(r.net)}${r.extra ? `<div class="dept-tag">incl. ${inr(r.extra)} bonus / OT / encashment / arrears</div>` : ''}${r.carryIn ? `<div class="dept-tag">+ ${inr(r.carryIn)} carried in</div>` : ''}</td>
+                    <td><strong>${inr(r.payable)}</strong></td>
+                    <td>${r.payStatus === 'pay' ? '<span class="badge approved">Pay</span>'
+                        : r.payStatus === 'hold' ? `<span class="badge pending">On Hold</span><div class="dept-tag">${esc(r.holdReason)}</div>`
+                        : `<span class="badge probation">Forwarded</span><div class="dept-tag">to ${monthLabel(r.fwd.toMonth)}</div>`}</td>
+                    <td><div class="btn-group">
+                      <button class="btn btn-secondary" onclick="viewStructure('${r.empId}')">Breakup</button>
+                      <button class="btn btn-secondary" onclick="viewPayslip('${r.empId}')">Payslip</button>
+                      <button class="btn btn-secondary" onclick="openStat('${r.empId}')">Stat. details</button>
+                      ${r.payStatus === 'forward'
+                        ? (getPayruns()[r.fwd.toMonth] ? '' : `<button class="btn btn-delete" onclick="undoForward('${r.empId}')">Undo</button>`)
+                        : ((locked && r.payStatus === 'pay') ? '' : `<button class="btn btn-primary" onclick="forwardSalary('${r.empId}')">Forward</button>`)}
+                    </div></td>
+                  </tr>`;
+                }).join('')}
+              </tbody>
+            </table></div>
+            <p class="dept-tag" style="padding:1rem 1.25rem; line-height:1.6">
+              Standard structure for every employee: Basic ${PAY.basicPct}% of CTC Â· HRA ${PAY.hraPct}% of Basic Â· Conveyance ${inr(PAY.conveyance)} Â· Special Allowance = balancing figure Â· Employer EPF ${PAY.epfPct}% and Gratuity ${PAY.gratuityPct}% of Basic (inside CTC) Â· Employee EPF ${PAY.epfPct}% of Basic Â· Professional Tax per Telangana slabs Â· TDS on new-regime slabs.
+              LOP = Gross Ã· 30 Ã— (absent days + Â½ Ã— half-days + permission-excess days) from Attendance; Leave and On Duty (OD) are paid (no LOP). Permission hours beyond the monthly quota = excess hours Ã· daily working hours. Resignation: pending = salary on hold; accepted = pro-rata up to last working date (30-day basis). Forward moves a salary to next month's payroll.${locked ? ' Processed ' + timeAgo(run.processedAt) + '.' : ''}
+            </p>`}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderPlaceholder(title, msg) {
+      return `
+        <div class="card" style="padding:3rem; text-align:center">
+          <h2 style="margin-bottom:.75rem; font-size:1.25rem">${title}</h2>
+          <p style="color:var(--text-muted); max-width:420px; margin:0 auto">${msg}</p>
+          <button class="btn btn-primary" style="margin-top:1.5rem; padding:.6rem 1.25rem; font-size:.85rem" onclick="navigate('dashboard')">â† Back to Dashboard</button>
+        </div>
+      `;
+    }
+
+    // ========== EMPLOYEE ID / DOB ==========
+    function nextEmpCode() {
+      const used = getEmployees().map(e => (e.empCode || '').toUpperCase());
+      let n = used.length + 1, c;
+      do { c = 'EMP' + String(n++).padStart(3, '0'); } while (used.includes(c));
+      return c;
+    }
+
+    // Adds Employee ID and DOB to records saved before these fields existed
+    function migrateEmployees() {
+      const list = getEmployees();
+      let changed = false;
+      list.forEach(e => {
+        if (!e.empCode) { e.empCode = nextEmpCodeFor(list); changed = true; }
+        if (!e.dob) { e.dob = '1900-01-01'; changed = true; }
+      });
+      if (changed) setEmployees(list);
+    }
+    function nextEmpCodeFor(list) {
+      const used = list.map(e => (e.empCode || '').toUpperCase());
+      let n = 1, c;
+      do { c = 'EMP' + String(n++).padStart(3, '0'); } while (used.includes(c));
+      return c;
+    }
+
+    // Password = date of birth as DDMMYYYY (e.g. 01011900)
+    function dobPassword(dob) { return dob ? dob.slice(8, 10) + dob.slice(5, 7) + dob.slice(0, 4) : ''; }
+
+    // ========== AUTH & EMPLOYEE SELF-SERVICE ==========
+    // Demo-only login: credentials are checked in the browser, so this is not real security.
+    const HR_LOGIN = { user: 'admin', pass: 'admin123' };   // kept for reference
+    const HR_USERS = [
+      { user: 'admin', pass: 'admin123', name: 'Admin User' },
+      { user: 'hradmin', pass: 'hradmin', name: 'HR Admin' }
+    ];
+    let session = null;
+    const EMP_PAGES = ['myleave', 'myresign', 'myletters', 'myperf', 'myatt', 'myperm', 'mystat', 'myservice'];
+    try { session = JSON.parse(sessionStorage.getItem('hrms_session')); } catch {}
+
+    function isHR() { return !session || session.role === 'hr'; }
+
+    // Last successful login (any user), kept in the shared data so every PC shows the same value
+    const LAST_LOGIN_KEY = 'hrms_last_login';
+    function showLastLogin() {
+      const el = document.getElementById('lastLoginLine'); if (!el) return;
+      let t = 'â€”';
+      try { const d = JSON.parse(localStorage.getItem(LAST_LOGIN_KEY) || 'null'); if (d && d.at) { const x = new Date(d.at), p = n => String(n).padStart(2, '0'); t = p(x.getDate()) + ' ' + x.toLocaleString('en-GB', { month: 'short' }) + ' ' + x.getFullYear() + ', ' + p(x.getHours()) + ':' + p(x.getMinutes()); } } catch {}
+      el.innerHTML = '<strong>Last login:</strong> ' + t;
+    }
+    function doLogin(ev) {
+      ev.preventDefault();
+      const u = document.getElementById('loginUser').value.trim().toLowerCase();
+      const p = document.getElementById('loginPass').value;
+      const err = document.getElementById('loginErr');
+      const hrU = HR_USERS.find(x => x.user === u && x.pass === p);
+      if (hrU) {
+        session = { role: 'hr', user: hrU.user };
+      } else {
+        const emp = getEmployees().find(e => (e.empCode || '').toLowerCase() === u && e.status !== 'inactive');
+        if (!emp || p !== dobPassword(emp.dob)) { err.textContent = 'Invalid email/username or password'; return; }
+        session = { role: 'employee', empId: emp.id };
+      }
+      try { sessionStorage.setItem('hrms_session', JSON.stringify(session)); } catch {}
+      try { localStorage.setItem(LAST_LOGIN_KEY, JSON.stringify({ at: new Date().toISOString() })); } catch {}
+      err.textContent = '';
+      document.getElementById('loginPass').value = '';
+      applyRole();
+    }
+
+    function logout(reason) {
+      try { sessionStorage.removeItem('hrms_session'); sessionStorage.removeItem('hrms_last_active'); } catch {}
+      session = null;
+      ['idleWarn', 'popupShow', 'attDone'].forEach(id => document.getElementById(id)?.remove());
+      document.querySelectorAll('.modal-backdrop.show').forEach(m => m.classList.remove('show'));
+      try { selfieStop(); } catch {}
+      document.getElementById('loginScreen').classList.add('show'); showLastLogin();
+      const el = document.getElementById('loginErr'); if (el) el.textContent = reason === 'idle' ? 'You were signed out after 5 minutes of inactivity.' : '';
+    }
+
+    function applyRole() {
+      const hr = isHR();
+      const emp = hr ? null : findEmployee(session.empId);
+      document.getElementById('userAvatar').innerHTML = hr ? (session?.user === 'hradmin' ? 'HA' : 'AD') : avImg(emp);
+      document.getElementById('userName').textContent = hr ? (HR_USERS.find(x => x.user === session?.user)?.name || 'Admin User') : (emp?.name || 'Employee');
+      document.getElementById('userRole').textContent = hr ? 'HR Administrator' : (emp?.role || 'Employee');
+      updateNavAccess();
+      document.querySelectorAll('.nav-section').forEach(el => { el.style.display = hr ? '' : 'none'; });
+      document.querySelector('.search-box').style.display = hr ? '' : 'none';
+      document.getElementById('loginScreen').classList.remove('show');
+      navigate(hr ? 'dashboard' : firstAllowed());
+      setTimeout(checkPopups, 600);
+      updateLateBadge(); updatePermBadge();
+    }
+
+    function cancelMyLeave(id) {
+      if (!confirm('Cancel this leave request?')) return;
+      setLeaves(getLeaves().filter(l => !(l.id === id && l.empId === session.empId && l.status === 'pending')));
+      showToast('Request cancelled', 'success');
+      refreshCurrentPage();
+    }
+
+    function renderMyLeave() {
+      const mine = getLeaves().filter(l => l.empId === session?.empId);
+      const count = st => mine.filter(l => l.status === st).length;
+      const stat = (label, n, cls) => `<div class="stat-card"><div class="stat-info"><h3>${label}</h3><div class="value">${n}</div></div><div class="stat-icon ${cls}"></div></div>`;
+      return `
+        <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr);">
+          ${stat('Awaiting HR Approval', count('pending'), 'amber')}
+          ${stat('Approved', count('approved'), 'green')}
+          ${stat('Rejected', count('rejected'), 'purple')}
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h2>My Leave Requests</h2>
+            <button class="btn btn-primary" style="padding:.5rem 1rem; font-size:.8rem;" onclick="openAddLeave()">+ Request Leave</button>
+          </div>
+          <div class="card-body table-wrap">
+            ${mine.length === 0 ? '<div class="empty-state">No leave requests yet. Click "Request Leave" to send one to HR.</div>' : `
+            <table>
+              <thead><tr><th>Type</th><th>Dates</th><th>Days</th><th>Reason</th><th>Status</th><th>Action</th></tr></thead>
+              <tbody>
+                ${mine.map(l => `
+                  <tr>
+                    <td>${esc(l.type)}</td>
+                    <td class="dept-tag">${formatDate(l.from)} â€“ ${formatDate(l.to)}</td>
+                    <td>${daysBetween(l.from, l.to)}</td>
+                    <td class="dept-tag">${esc(l.reason) || 'â€”'}</td>
+                    <td>${statusBadge(l.status)}${l.decidedAt ? `<div class="dept-tag">${formatDate(l.decidedAt)}</div>` : ''}</td>
+                    <td><div class="btn-group">
+                      <button class="btn btn-secondary" onclick="openLeaveLetter('${l.id}','leave')">My Letter</button>
+                      ${l.status === 'approved' ? `<button class="btn btn-secondary" onclick="openLeaveLetter('${l.id}','leave-approved')">Approval Letter</button>` : ''}
+                      ${l.status === 'pending' ? `<button class="btn btn-delete" onclick="cancelMyLeave('${l.id}')">Cancel</button>` : ''}
+                    </div></td>
+                  </tr>`).join('')}
+              </tbody>
+            </table>`}
+          </div>
+        </div>`;
+    }
+
+    // ========== LETTERS ==========
+    const LETTER_LABELS = { appointment: 'Appointment Order', acceptance: 'Acceptance Letter', leave: 'Leave Application', 'leave-approved': 'Leave Approval Letter' };
+    const LETTER_CODES = { appointment: 'APT', acceptance: 'ACC', leave: 'LVR', 'leave-approved': 'LVA' };
+    let letterFilter = 'all';
+    let viewingLetter = null;
+
+    function getLetters() { return load(STORAGE_KEYS.letters) || []; }
+    function fmtDateTime(iso) { return new Date(iso).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }); }
+    function addDaysISO(iso, n) { return new Date(Date.parse(iso + 'T12:00:00Z') + n * 864e5).toISOString().slice(0, 10); }
+
+    function createLetter(type, empId, relatedId, data, dateIso) {
+      const list = getLetters();
+      const date = dateIso || new Date().toISOString();
+      const seq = String(list.filter(l => l.type === type).length + 1).padStart(3, '0');
+      const letter = { id: uid(), type, empId, relatedId: relatedId || null, refNo: `RA/${LETTER_CODES[type]}/${new Date(date).getFullYear()}/${seq}`, date, data };
+      list.unshift(letter);
+      save(STORAGE_KEYS.letters, list);
+      return letter;
+    }
+
+    function ensureLeaveLetter(leaveId, type) {
+      const found = getLetters().find(x => x.type === type && x.relatedId === leaveId);
+      if (found) return found;
+      const lv = getLeaves().find(x => x.id === leaveId);
+      if (!lv || (type === 'leave-approved' && lv.status !== 'approved')) return null;
+      const data = { leaveType: lv.type, from: lv.from, to: lv.to, days: daysBetween(lv.from, lv.to), reason: lv.reason || '', appliedOn: lv.createdAt };
+      return createLetter(type, lv.empId, leaveId, data, type === 'leave' ? lv.createdAt : (lv.decidedAt || new Date().toISOString()));
+    }
+
+    function openLeaveLetter(leaveId, type) {
+      const lv = getLeaves().find(x => x.id === leaveId);
+      if (!lv || (!isHR() && lv.empId !== session.empId)) return;
+      const l = ensureLeaveLetter(leaveId, type);
+      if (!l) { showToast('Letter not available', 'error'); return; }
+      viewLetter(l.id);
+    }
+
+    function letterHead() {
+      return `<div class="lh"><img src="${document.querySelector('.logo-img img').src}" alt="" /><div><div class="lh-name">R &amp; A Associates</div><div class="lh-sub">Human Resources Department</div></div></div>`;
+    }
+
+    function renderLetterBody(l) {
+      const e = findEmployee(l.empId) || {};
+      const d = l.data;
+      const nm = esc(e.name || 'Employee'), code = esc(e.empCode || '');
+      const meta = `<div class="l-meta"><span>Ref: ${esc(l.refNo)}</span><span>Date: ${formatDate(l.date)}</span></div>`;
+      const toHR = `<p><strong>To,</strong><br>The HR Manager,<br>R &amp; A Associates.</p>`;
+      const fromEmp = `<div class="l-sign">Yours faithfully,<br><br><strong>${nm}</strong><br>${esc(e.role || '')}, ${esc(e.dept || '')}<br>Employee ID: ${code}</div>`;
+      const period = `${d.days} day${d.days > 1 ? 's' : ''} from ${formatDate(d.from)} to ${formatDate(d.to)}`;
+
+      if (l.type === 'appointment') return meta + `
+        <p><strong>To,</strong><br>${nm}<br>Employee ID: ${code}</p>
+        <p><strong>Subject: Appointment Order â€“ ${esc(d.designation)}</strong></p>
+        <p>Dear ${nm},</p>
+        <p>We are pleased to appoint you as <strong>${esc(d.designation)}</strong> in the <strong>${esc(d.dept)}</strong> department of R &amp; A Associates, with effect from <strong>${formatDate(d.doj)}</strong>, on the following terms and conditions:</p>
+        <ol>
+          <li><strong>Employee ID:</strong> ${code}.</li>
+          <li><strong>Remuneration:</strong> ${d.ctc > 0 ? `Your annual Cost to Company (CTC) will be ${inr(d.ctc)}, structured as per the company's Standard Payroll Structure given in the Annexure, subject to statutory deductions.` : d.salary > 0 ? `Your monthly gross salary will be ${inr(d.salary)}, subject to statutory deductions.` : 'As per the company pay structure communicated separately.'}</li>
+          <li><strong>Probation:</strong> You will be on probation for ${d.probation} month(s) from the date of joining. Confirmation is subject to satisfactory performance.</li>
+          <li><strong>Duties:</strong> You shall perform the duties assigned to you and abide by the rules, policies and code of conduct of the company.</li>
+          <li><strong>Confidentiality:</strong> You shall not disclose confidential information of the company during or after your employment.</li>
+          <li><strong>Notice:</strong> Either party may end the employment by giving 30 days' written notice or salary in lieu thereof.</li>
+        </ol>
+        <p>Please sign in to the HRMS portal and accept this appointment order within 7 days of receipt.</p>
+        <p>We welcome you to R &amp; A Associates and wish you a successful career with us.</p>
+        <div class="l-sign">Yours sincerely,<br><br><strong>Authorised Signatory</strong><br>HR Department, R &amp; A Associates</div>
+        ${d.ctc > 0 ? `<div class="l-annex"><p style="margin-top:1.5rem"><strong>Annexure â€“ Salary Structure</strong></p>${structureTable(d.ctc)}</div>` : ''}
+        ${d.acceptedAt ? `<div class="l-stamp">Accepted electronically by ${nm} (${code}) on ${fmtDateTime(d.acceptedAt)}</div>` : ''}`;
+
+      if (l.type === 'acceptance') return meta + toHR + `
+        <p><strong>Subject: Acceptance of Appointment Order ${esc(d.apptRef)}</strong></p>
+        <p>Dear Sir/Madam,</p>
+        <p>I, <strong>${nm}</strong> (Employee ID: ${code}), acknowledge receipt of your appointment order <strong>${esc(d.apptRef)}</strong> dated ${formatDate(d.apptDate)}, appointing me as <strong>${esc(d.designation)}</strong> in the <strong>${esc(d.dept)}</strong> department.</p>
+        <p>I hereby accept the appointment along with all the terms and conditions stated therein, and I shall join duty on <strong>${formatDate(d.doj)}</strong>.</p>
+        <p>Thank you for the opportunity.</p>
+        ${fromEmp}
+        <div class="l-stamp">Accepted electronically via HRMS login of ${code} on ${fmtDateTime(d.acceptedAt)}</div>`;
+
+      if (l.type === 'leave') return meta + toHR + `
+        <p><strong>Subject: Application for ${esc(d.leaveType)} â€“ ${period}</strong></p>
+        <p>Respected Sir/Madam,</p>
+        <p>I, <strong>${nm}</strong>, working as ${esc(e.role || '')} in the ${esc(e.dept || '')} department, kindly request you to grant me <strong>${esc(d.leaveType)}</strong> for <strong>${period}</strong>${d.reason ? ` due to the following reason: ${esc(d.reason)}` : ''}.</p>
+        <p>I will ensure that my pending work is handed over and managed during my absence. I request you to kindly approve my leave.</p>
+        <p>Thanking you.</p>
+        ${fromEmp}
+        <div class="l-stamp">Submitted through HRMS on ${fmtDateTime(d.appliedOn)}</div>`;
+
+      return meta + `
+        <p><strong>To,</strong><br>${nm}<br>Employee ID: ${code}</p>
+        <p><strong>Subject: Approval of ${esc(d.leaveType)}</strong></p>
+        <p>Dear ${nm},</p>
+        <p>With reference to your leave application dated ${formatDate(d.appliedOn)}, we are pleased to inform you that your <strong>${esc(d.leaveType)}</strong> for <strong>${period}</strong> has been <strong>approved</strong>.</p>
+        <p>You are expected to resume duties on or after <strong>${formatDate(addDaysISO(d.to, 1))}</strong>. Please ensure that your work is handed over before you proceed on leave.</p>
+        <div class="l-sign">Yours sincerely,<br><br><strong>Authorised Signatory</strong><br>HR Department, R &amp; A Associates</div>`;
+    }
+
+    function viewLetter(id) {
+      const l = getLetters().find(x => x.id === id);
+      if (!l || (!isHR() && l.empId !== session.empId)) return;
+      viewingLetter = id;
+      document.getElementById('letterTitle').textContent = LETTER_LABELS[l.type];
+      document.getElementById('letterPaper').innerHTML = letterHead() + renderLetterBody(l);
+      document.getElementById('letterAcceptBtn').style.display = (!isHR() && l.type === 'appointment' && !l.data.acceptedAt) ? '' : 'none';
+      openModal('letterModal');
+    }
+
+    function acceptAppointment() {
+      const list = getLetters();
+      const a = list.find(x => x.id === viewingLetter);
+      if (!a || a.type !== 'appointment' || a.empId !== session?.empId || a.data.acceptedAt) return;
+      if (!confirm('By accepting, you agree to all terms in this appointment order. Continue?')) return;
+      const now = new Date().toISOString();
+      a.data.acceptedAt = now;
+      save(STORAGE_KEYS.letters, list);
+      const acc = createLetter('acceptance', a.empId, a.id, { apptRef: a.refNo, apptDate: a.date, designation: a.data.designation, dept: a.data.dept, doj: a.data.doj, acceptedAt: now }, now);
+      addActivity(`<strong>${esc(findEmployee(a.empId)?.name)}</strong> accepted the appointment order`, 'green');
+      showToast('Appointment accepted', 'success');
+      refreshCurrentPage();
+      viewLetter(acc.id);
+    }
+
+    function openIssueAppointment() {
+      const emps = getEmployees().filter(e => e.status !== 'inactive');
+      document.getElementById('apptEmp').innerHTML = emps.map(e => `<option value="${e.id}">${esc(e.name)} (${esc(e.empCode || '')})</option>`).join('');
+      document.getElementById('apptDoj').value = new Date().toISOString().slice(0, 10);
+      document.getElementById('apptProb').value = 6;
+      fillApptDefaults();
+      openModal('apptModal');
+    }
+
+    function fillApptDefaults() {
+      refreshOrgLists();
+      const e = findEmployee(document.getElementById('apptEmp').value);
+      if (!e) return;
+      document.getElementById('apptDesig').value = e.role || '';
+      document.getElementById('apptDept').value = e.dept || '';
+      document.getElementById('apptSalary').value = getCTCs()[e.id] || '';
+    }
+
+    function saveAppointment(ev) {
+      ev.preventDefault();
+      const empId = document.getElementById('apptEmp').value;
+      const ctc = Math.max(0, parseFloat(document.getElementById('apptSalary').value) || 0);
+      const data = {
+        designation: document.getElementById('apptDesig').value.trim(),
+        dept: document.getElementById('apptDept').value.trim(),
+        doj: document.getElementById('apptDoj').value,
+        probation: parseInt(document.getElementById('apptProb').value, 10) || 0,
+        ctc
+      };
+      if (ctc > 0) { const m = getCTCs(); m[empId] = ctc; save(STORAGE_KEYS.ctc, m); }
+      const l = createLetter('appointment', empId, null, data);
+      addActivity(`Appointment order issued to <strong>${esc(findEmployee(empId)?.name)}</strong>`, 'blue');
+      showToast('Appointment order issued', 'success');
+      closeModal('apptModal');
+      refreshCurrentPage();
+      viewLetter(l.id);
+    }
+
+    function letterStatus(l) {
+      if (l.type === 'appointment') return l.data.acceptedAt ? '<span class="badge approved">Accepted</span>' : '<span class="badge pending">Awaiting Acceptance</span>';
+      return '<span class="badge active">Filed</span>';
+    }
+
+    function letterTable(list, showEmp) {
+      if (!list.length) return '<div class="empty-state">No letters yet</div>';
+      return `<table>
+        <thead><tr><th>Ref No</th><th>Letter</th>${showEmp ? '<th>Employee</th>' : ''}<th>Date</th><th>Status</th><th>Action</th></tr></thead>
+        <tbody>${list.map(l => {
+          const e = findEmployee(l.empId);
+          return `<tr>
+            <td>${esc(l.refNo)}</td>
+            <td>${LETTER_LABELS[l.type]}</td>
+            ${showEmp ? `<td>${esc(e?.name || 'Unknown')} <span class="dept-tag">${esc(e?.empCode || '')}</span></td>` : ''}
+            <td class="dept-tag">${formatDate(l.date)}</td>
+            <td>${letterStatus(l)}</td>
+            <td><button class="btn btn-secondary" onclick="viewLetter('${l.id}')">View / Print</button></td>
+          </tr>`;
+        }).join('')}</tbody></table>`;
+    }
+
+    function renderLetters() {
+      const all = getLetters();
+      const list = letterFilter === 'all' ? all : all.filter(l => l.type === letterFilter);
+      return `
+        <div class="card">
+          <div class="card-header" style="flex-wrap:wrap; gap:.75rem">
+            <h2>Letters Archive</h2>
+            <div class="btn-group" style="align-items:center">
+              <select onchange="letterFilter=this.value; refreshCurrentPage()" style="padding:.45rem .6rem; border:1px solid var(--border); border-radius:8px; font-family:inherit">
+                <option value="all">All letters</option>
+                ${Object.entries(LETTER_LABELS).map(([k, v]) => `<option value="${k}" ${letterFilter === k ? 'selected' : ''}>${v}</option>`).join('')}
+              </select>
+              <button class="btn btn-primary" style="padding:.5rem 1rem; font-size:.8rem" onclick="openIssueAppointment()">+ Issue Appointment Order</button>
+            </div>
+          </div>
+          <div class="card-body table-wrap">${letterTable(list, true)}</div>
+        </div>`;
+    }
+
+    function renderMyLetters() {
+      const mine = getLetters().filter(l => l.empId === session?.empId);
+      const pending = mine.find(l => l.type === 'appointment' && !l.data.acceptedAt);
+      return `
+        ${pending ? `<div class="card" style="padding:1rem 1.25rem; margin-bottom:1.25rem; display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap">
+          <span>Your appointment order <strong>${esc(pending.refNo)}</strong> is awaiting your acceptance.</span>
+          <button class="btn btn-primary" onclick="viewLetter('${pending.id}')">View &amp; Accept</button></div>` : ''}
+        <div class="card">
+          <div class="card-header"><h2>My Letters</h2></div>
+          <div class="card-body table-wrap">${letterTable(mine, false)}</div>
+        </div>`;
+    }
+
+    // ========== SIDEBAR COLLAPSE ==========
+    function toggleSidebar() {
+      const c = document.body.classList.toggle('sb-collapsed');
+      try { localStorage.setItem('hrms_sb_collapsed', c ? '1' : '0'); } catch {}
+    }
+    document.querySelectorAll('.nav-item').forEach(el => {
+      const t = [...el.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent.trim()).join(' ').trim();
+      if (t) el.title = t;
+    });
+    try { if (localStorage.getItem('hrms_sb_collapsed') === '1') document.body.classList.add('sb-collapsed'); } catch {}
+
+
+    // ========== RESPONSIVE HELPERS (tablet / mobile sidebar) ==========
+    (function () {
+      const sb = document.getElementById('sidebar'), ov = document.createElement('div'); ov.id = 'sbOverlay'; document.body.appendChild(ov);
+      const small = () => window.innerWidth <= 1024;
+      const sync = () => document.body.classList.toggle('sidebar-open', small() && sb.classList.contains('open'));
+      new MutationObserver(sync).observe(sb, { attributes: true, attributeFilter: ['class'] });
+      ov.onclick = () => sb.classList.remove('open');
+      document.querySelectorAll('.nav-item').forEach(a => a.addEventListener('click', () => { if (small()) sb.classList.remove('open'); }));
+      function fit() {   // desktop remembers the collapsed menu; tablets/phones always use the slide-in menu
+        if (small()) { document.body.classList.remove('sb-collapsed'); } else { try { document.body.classList.toggle('sb-collapsed', localStorage.getItem('hrms_sb_collapsed') === '1'); } catch (e) {} sb.classList.remove('open'); }
+        sync();
+      }
+      window.addEventListener('resize', fit); fit();
+    })();
+
+    // ========== EMPLOYEE EXPORT / IMPORT (Excel + PDF) ==========
+    const EMP_COLS = [
+      ['Employee ID', e => e.empCode || ''], ['Full Name', e => e.name || ''], ['Email', e => e.email || ''],
+      ['Date of Birth', e => e.dob || ''], ['Department', e => e.dept || ''], ['Designation', e => e.role || ''],
+      ['Phone', e => e.phone || ''], ['Status', e => EMP_STATUS_LABEL[e.status] || e.status || ''],
+      ['Date of Joining', e => e.doj || ''], ['Relieving Date', e => e.relievingDate || ''],
+    ];
+    const EMP_STATUS_LABEL = { active: 'Active', 'on-leave': 'On Leave', probation: 'Probation', inactive: 'Inactive' };
+    const EMP_STATUS_PARSE = { active: 'active', 'on leave': 'on-leave', 'on-leave': 'on-leave', onleave: 'on-leave', probation: 'probation', inactive: 'inactive' };
+    // Header aliases accepted on import (compared after lowercasing and removing spaces / punctuation)
+    const EMP_HEADERS = {
+      empCode: ['employeeid', 'empid', 'empcode', 'employeecode', 'id'], name: ['fullname', 'name', 'employeename', 'empname'],
+      email: ['email', 'emailid', 'emailaddress'], dob: ['dateofbirth', 'dob', 'birthdate'],
+      dept: ['department', 'dept'], role: ['designation', 'role', 'jobtitle', 'position'],
+      phone: ['phone', 'mobile', 'phoneno', 'mobileno', 'contact', 'phonenumber'], status: ['status'],
+      doj: ['dateofjoining', 'doj', 'joiningdate', 'joindate'], relievingDate: ['relievingdate', 'dateofrelieving', 'relieveddate', 'lastworkingdate', 'dor'],
+    };
+
+    const _libCache = {};
+    function loadLib(url, ready) {
+      if (ready()) return Promise.resolve();
+      return _libCache[url] || (_libCache[url] = new Promise((res, rej) => {
+        const el = document.createElement('script');
+        el.src = url; el.onload = () => res(); el.onerror = () => { delete _libCache[url]; rej(new Error('load')); };
+        document.head.appendChild(el);
+      }));
+    }
+    const loadXLSX = () => loadLib('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', () => window.XLSX);
+    const loadPDF = () => loadLib('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', () => window.jspdf)
+      .then(() => loadLib('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js', () => window.jspdf.jsPDF.API.autoTable));
+    const libFail = what => showToast('Could not load the ' + what + ' library. Check the internet connection and try again', 'error');
+
+    // Employees currently listed (respects the search box)
+    function empListForExport() {
+      let emps = getEmployees();
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        emps = emps.filter(e => (e.name || '').toLowerCase().includes(q) || (e.email || '').toLowerCase().includes(q) || (e.empCode || '').toLowerCase().includes(q) || (e.dept || '').toLowerCase().includes(q) || (e.role || '').toLowerCase().includes(q));
+      }
+      return emps;
+    }
+
+    // dd-mm-yyyy for display in files; ISO for storage
+    const fmtDMY = iso => /^\d{4}-\d{2}-\d{2}$/.test(iso || '') ? iso.slice(8, 10) + '-' + iso.slice(5, 7) + '-' + iso.slice(0, 4) : (iso || '');
+
+    function empExportExcel() {
+      const emps = empListForExport();
+      if (!emps.length) { showToast('No employees to export', 'error'); return; }
+      loadXLSX().then(() => {
+        const rows = [EMP_COLS.map(c => c[0])].concat(emps.map(e => EMP_COLS.map(([h, f]) => (h === 'Date of Birth' || h === 'Date of Joining' || h === 'Relieving Date') ? fmtDMY(f(e)) : f(e))));
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+        ws['!cols'] = EMP_COLS.map(([h]) => ({ wch: Math.max(h.length + 2, h === 'Email' ? 30 : h === 'Full Name' || h === 'Designation' || h === 'Department' ? 22 : 14) }));
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Employees');
+        XLSX.writeFile(wb, 'Employees_' + ISO(new Date()) + '.xlsx');
+        showToast(emps.length + ' employees exported to Excel', 'success');
+      }).catch(() => libFail('Excel'));
+    }
+
+    function empExportPDF() {
+      const emps = empListForExport();
+      if (!emps.length) { showToast('No employees to export', 'error'); return; }
+      loadPDF().then(() => {
+        const doc = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+        doc.setFontSize(15); doc.setTextColor(29, 29, 216); doc.text('R & A Associates', 40, 38);
+        doc.setFontSize(11); doc.setTextColor(30, 41, 59); doc.text('Employee List (' + emps.length + ')', 40, 56);
+        doc.setFontSize(9); doc.setTextColor(100, 116, 139); doc.text('Generated ' + formatDate(new Date().toISOString()), 800, 56, { align: 'right' });
+        doc.autoTable({
+          startY: 68,
+          head: [['#'].concat(EMP_COLS.map(c => c[0]))],
+          body: emps.map((e, i) => [i + 1].concat(EMP_COLS.map(([h, f]) => (h === 'Date of Birth' || h === 'Date of Joining' || h === 'Relieving Date') ? (fmtDMY(f(e)) || '-') : (f(e) || '-')))),
+          styles: { fontSize: 8, cellPadding: 4, overflow: 'linebreak' },
+          headStyles: { fillColor: [37, 99, 235], textColor: 255 },
+          alternateRowStyles: { fillColor: [248, 250, 252] },
+          margin: { left: 40, right: 40 },
+          didDrawPage: d => { doc.setFontSize(8); doc.setTextColor(100, 116, 139); doc.text('Page ' + doc.internal.getNumberOfPages(), 800, 575, { align: 'right' }); },
+        });
+        doc.save('Employees_' + ISO(new Date()) + '.pdf');
+        showToast(emps.length + ' employees exported to PDF', 'success');
+      }).catch(() => libFail('PDF'));
+    }
+
+    function empDownloadTemplate() {
+      loadXLSX().then(() => {
+        const head = EMP_COLS.map(c => c[0]);
+        const sample = ['EMP101', 'Aisha Khan', 'aisha@company.com', '15-08-1995', 'Engineering', 'Senior Developer', '+91 98765 43210', 'Active', '01-04-2024', ''];
+        const ws = XLSX.utils.aoa_to_sheet([head, sample]);
+        ws['!cols'] = head.map(h => ({ wch: Math.max(h.length + 2, 16) }));
+        const note = XLSX.utils.aoa_to_sheet([['Employee import notes'], ['Required: Employee ID, Full Name, Email, Department, Designation.'], ['Dates: DD-MM-YYYY (or YYYY-MM-DD, or Excel date cells). Date of Birth blank = 01-01-1900.'], ['Status: Active, On Leave, Probation or Inactive (blank = Active).'], ['An existing Employee ID is updated. Delete the sample row before importing.']]);
+        note['!cols'] = [{ wch: 95 }];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Employees');
+        XLSX.utils.book_append_sheet(wb, note, 'Notes');
+        XLSX.writeFile(wb, 'Employee_Import_Template.xlsx');
+      }).catch(() => libFail('Excel'));
+    }
+
+    // --- Import ---
+    let empImportRows = [];
+
+    function openEmpImport() {
+      document.getElementById('empImportFile').value = '';
+      document.getElementById('empImportSummary').innerHTML = '';
+      document.getElementById('empImportTable').innerHTML = '';
+      document.getElementById('empImportCommit').disabled = true;
+      document.getElementById('empImportCommit').textContent = 'Import';
+      empImportRows = [];
+      openModal('empImportModal');
+    }
+
+    // Accepts Date objects, Excel serials, DD-MM-YYYY, DD/MM/YYYY, YYYY-MM-DD; returns ISO or '' (null when unreadable)
+    function empParseDate(v) {
+      if (v == null || v === '') return '';
+      const pad = n => String(n).padStart(2, '0');
+      if (v instanceof Date && !isNaN(v)) return v.getFullYear() + '-' + pad(v.getMonth() + 1) + '-' + pad(v.getDate());
+      if (typeof v === 'number' && v > 59 && v < 80000) { const d = new Date(Math.round((v - 25569) * 86400000)); return d.getUTCFullYear() + '-' + pad(d.getUTCMonth() + 1) + '-' + pad(d.getUTCDate()); }
+      const t = String(v).trim();
+      let m = /^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})$/.exec(t);
+      if (m) return m[1] + '-' + pad(+m[2]) + '-' + pad(+m[3]);
+      m = /^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})$/.exec(t);
+      if (m) return m[3] + '-' + pad(+m[2]) + '-' + pad(+m[1]);
+      return null;
+    }
+
+    function empImportRead(input) {
+      const f = input.files && input.files[0];
+      if (!f) return;
+      if (!/\.(xlsx|xls)$/i.test(f.name)) {
+        showToast('Only Excel files (.xlsx or .xls) can be imported', 'error');
+        input.value = ''; return;
+      }
+      loadXLSX().then(() => {
+        const r = new FileReader();
+        r.onerror = () => showToast('Could not read the file', 'error');
+        r.onload = () => {
+          try {
+            const wb = XLSX.read(r.result, { type: 'array' });
+            const ws = wb.Sheets[wb.SheetNames[0]];
+            empImportBuild(XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: true, blankrows: false }));
+          } catch (e) { showToast('This file is not a valid Excel workbook', 'error'); }
+        };
+        r.readAsArrayBuffer(f);
+      }).catch(() => libFail('Excel'));
+    }
+
+    function empImportBuild(grid) {
+      const norm = x => String(x ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const sum = document.getElementById('empImportSummary'), tbl = document.getElementById('empImportTable'), btn = document.getElementById('empImportCommit');
+      const hi = grid.findIndex(r => r.some(c => EMP_HEADERS.name.includes(norm(c))));
+      if (hi < 0) { sum.innerHTML = '<span style="color:#dc2626;font-size:.85rem;">Header row not found. The sheet needs a "Full Name" column. Use the Excel template.</span>'; tbl.innerHTML = ''; btn.disabled = true; return; }
+      const col = {};
+      grid[hi].forEach((c, i) => { const k = norm(c); Object.keys(EMP_HEADERS).forEach(f => { if (col[f] === undefined && EMP_HEADERS[f].includes(k)) col[f] = i; }); });
+      const missingCols = ['empCode', 'name', 'email', 'dept', 'role'].filter(f => col[f] === undefined);
+      if (missingCols.length) {
+        const label = { empCode: 'Employee ID', name: 'Full Name', email: 'Email', dept: 'Department', role: 'Designation' };
+        sum.innerHTML = '<span style="color:#dc2626;font-size:.85rem;">Missing column(s): ' + missingCols.map(f => label[f]).join(', ') + '</span>'; tbl.innerHTML = ''; btn.disabled = true; return;
+      }
+      const existing = getEmployees(), seen = new Set(), out = [];
+      grid.slice(hi + 1).forEach((r, i) => {
+        const get = f => col[f] === undefined ? '' : r[col[f]];
+        const txt = f => String(get(f) ?? '').trim();
+        const d = { row: hi + i + 2, empCode: txt('empCode').toUpperCase(), name: txt('name'), email: txt('email'), dept: txt('dept'), role: txt('role'), phone: txt('phone') };
+        const errs = [];
+        if (!d.empCode) errs.push('Employee ID missing');
+        if (!d.name) errs.push('Full Name missing');
+        if (!d.email) errs.push('Email missing'); else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email)) errs.push('Invalid email');
+        if (!d.dept) errs.push('Department missing');
+        if (!d.role) errs.push('Designation missing');
+        const st = txt('status').toLowerCase();
+        d.status = st ? EMP_STATUS_PARSE[st] : 'active';
+        if (!d.status) errs.push('Status must be Active, On Leave, Probation or Inactive');
+        ['dob', 'doj', 'relievingDate'].forEach(f => {
+          const v = empParseDate(get(f));
+          if (v === null) errs.push({ dob: 'Date of Birth', doj: 'Date of Joining', relievingDate: 'Relieving Date' }[f] + ' unreadable');
+          d[f] = v || '';
+        });
+        if (!d.dob) d.dob = '1900-01-01';
+        if (d.doj && d.relievingDate && d.relievingDate < d.doj) errs.push('Relieving Date before Date of Joining');
+        if (d.empCode) { if (seen.has(d.empCode)) errs.push('Duplicate Employee ID in file'); seen.add(d.empCode); }
+        const ex = d.empCode && existing.find(e => (e.empCode || '').toUpperCase() === d.empCode);
+        d.existingId = ex ? ex.id : '';
+        d.action = errs.length ? 'error' : (ex ? 'skip' : 'add');
+        d.errs = errs;
+        out.push(d);
+      });
+      empImportRows = out;
+      const n = a => out.filter(r => r.action === a).length;
+      const ok = n('add');
+      sum.innerHTML = `<div style="font-size:.85rem;line-height:1.7;margin-bottom:.75rem;"><strong>${out.length}</strong> rows read: <span style="color:#059669">${n('add')} new</span>, <span style="color:#64748b">${n('skip')} already exist (kept unchanged)</span>, <span style="color:#dc2626">${n('error')} with errors</span> (skipped). Existing employees are not modified.</div>`;
+      const badge = { add: ['active', 'New'], skip: ['probation', 'Exists'], error: ['inactive', 'Error'] };
+      tbl.innerHTML = out.length ? `
+        <table>
+          <thead><tr><th>Row</th><th>Employee ID</th><th>Name</th><th>Department</th><th>Designation</th><th>Joined</th><th>Relieved</th><th>Result</th></tr></thead>
+          <tbody>${out.slice(0, 300).map(r => `
+            <tr><td>${r.row}</td><td>${esc(r.empCode)}</td><td>${esc(r.name)}<div class="dept-tag">${esc(r.email)}</div></td><td>${esc(r.dept)}</td><td>${esc(r.role)}</td>
+            <td>${r.doj ? formatDate(r.doj) : 'â€”'}</td><td>${r.relievingDate ? formatDate(r.relievingDate) : 'â€”'}</td>
+            <td><span class="badge ${badge[r.action][0]}">${badge[r.action][1]}</span>${r.action === 'skip' ? '<div class="dept-tag">Kept unchanged</div>' : ''}${r.errs.length ? `<div class="dept-tag" style="color:#dc2626">${esc(r.errs.join('; '))}</div>` : ''}</td></tr>`).join('')}
+          </tbody>
+        </table>${out.length > 300 ? `<div class="dept-tag" style="padding:.5rem;">Showing first 300 of ${out.length}. All valid rows will be imported.</div>` : ''}`
+        : '<div class="empty-state">No data rows found below the header.</div>';
+      btn.disabled = !ok;
+      btn.textContent = ok ? 'Import ' + ok + ' new employees' : 'Import';
+    }
+
+    function empImportCommit() {
+      const rows = empImportRows.filter(r => r.action === 'add');
+      if (!rows.length) return;
+      const list = getEmployees();   // existing records are never changed; new ones are only added
+      let added = 0;
+      rows.forEach(r => {
+        // re-check at save time so an Employee ID added meanwhile is never overwritten
+        if (list.some(e => (e.empCode || '').toUpperCase() === r.empCode)) return;
+        addDepartment(r.dept);
+        addDesignation(r.role, r.dept);
+        list.unshift({ id: uid(), name: r.name, empCode: r.empCode, dob: r.dob, email: r.email, dept: r.dept, role: r.role, status: r.status, phone: r.phone, doj: r.doj, relievingDate: r.relievingDate, avatar: getInitials(r.name), color: randomColor(), createdAt: new Date().toISOString() });
+        added++;
+      });
+      const skipped = empImportRows.filter(r => r.action === 'skip').length;
+      setEmployees(list);
+      addActivity(`Imported employees from Excel: <strong>${added}</strong> added, ${skipped} existing kept unchanged`, 'green');
+      showToast(added + ' added' + (skipped ? ', ' + skipped + ' existing kept unchanged' : ''), 'success');
+      empImportRows = [];
+      closeModal('empImportModal');
+      refreshCurrentPage();
+    }
+
+    // ========== DEPARTMENTS & DESIGNATIONS ==========
+    const DEPT_DEFAULT = ['Engineering', 'Marketing', 'Human Resources', 'Finance', 'Sales', 'Operations', 'Product', 'Design'];
+    const DESIG_DEFAULT = ['Manager', 'Team Lead', 'Executive', 'Intern'];
+    const sameName = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+
+    function getDepartments() {
+      let l = load(STORAGE_KEYS.departments);
+      if (!l) {
+        l = DEPT_DEFAULT.slice();
+        getEmployees().forEach(e => { if (e.dept && !l.some(x => sameName(x, e.dept))) l.push(e.dept); });
+        save(STORAGE_KEYS.departments, l);
+      }
+      return l;
+    }
+    function setDepartments(l) { save(STORAGE_KEYS.departments, l); }
+
+    // Designation: { id, name, dept } where dept '' means available in every department
+    function getDesignations() {
+      let l = load(STORAGE_KEYS.designations);
+      if (!l) {
+        l = DESIG_DEFAULT.map(name => ({ id: uid(), name, dept: '' }));
+        getEmployees().forEach(e => { if (e.role && !l.some(d => sameName(d.name, e.role))) l.push({ id: uid(), name: e.role, dept: e.dept || '' }); });
+        save(STORAGE_KEYS.designations, l);
+      }
+      return l;
+    }
+    function setDesignations(l) { save(STORAGE_KEYS.designations, l); }
+    function designationsFor(dept) { return getDesignations().filter(d => !d.dept || !dept || sameName(d.dept, dept)); }
+
+    function addDepartment(name) {
+      name = String(name || '').trim();
+      if (!name) return null;
+      const l = getDepartments();
+      const ex = l.find(x => sameName(x, name));
+      if (ex) return ex;
+      l.push(name); setDepartments(l);
+      addActivity(`Added department <strong>${esc(name)}</strong>`, 'green');
+      return name;
+    }
+
+    function addDesignation(name, dept) {
+      name = String(name || '').trim();
+      if (!name) return null;
+      const l = getDesignations();
+      const ex = l.find(d => sameName(d.name, name) && sameName(d.dept, dept || ''));
+      if (ex) return ex.name;
+      l.push({ id: uid(), name, dept: dept || '' }); setDesignations(l);
+      addActivity(`Added designation <strong>${esc(name)}</strong>`, 'green');
+      return name;
+    }
+
+    // --- Employee form dropdowns (with "+ Add new" option) ---
+    function fillEmpDeptOptions(selected) {
+      const el = document.getElementById('empDept');
+      const cur = selected !== undefined ? selected : el.value;
+      const l = getDepartments().slice();
+      if (cur && !l.some(x => sameName(x, cur))) l.push(cur);
+      el.innerHTML = '<option value="">Select</option>' + l.map(d => `<option value="${esc(d)}">${esc(d)}</option>`).join('') + '<option value="__new__">+ Add new departmentâ€¦</option>';
+      el.value = cur || '';
+    }
+
+    function fillEmpRoleOptions(selected) {
+      const el = document.getElementById('empRole');
+      const cur = selected !== undefined ? selected : el.value;
+      const names = designationsFor(document.getElementById('empDept').value).map(d => d.name);
+      if (cur && !names.some(x => sameName(x, cur))) names.push(cur);
+      el.innerHTML = '<option value="">Select</option>' + names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('') + '<option value="__new__">+ Add new designationâ€¦</option>';
+      el.value = cur || '';
+    }
+
+    function empDeptChanged() {
+      const el = document.getElementById('empDept');
+      if (el.value === '__new__') {
+        const name = addDepartment(prompt('New department name'));
+        fillEmpDeptOptions(name || '');
+      }
+      fillEmpRoleOptions('');
+    }
+
+    function empRoleChanged() {
+      const el = document.getElementById('empRole');
+      if (el.value !== '__new__') return;
+      const name = addDesignation(prompt('New designation name'), document.getElementById('empDept').value);
+      fillEmpRoleOptions(name || '');
+    }
+
+    // --- Departments page ---
+    function deptAdd() {
+      const el = document.getElementById('deptNew');
+      const name = el.value.trim();
+      if (!name) { showToast('Enter a department name', 'error'); return; }
+      if (getDepartments().some(x => sameName(x, name))) { showToast('Department already exists', 'error'); return; }
+      addDepartment(name);
+      showToast('Department added', 'success');
+      refreshCurrentPage();
+    }
+
+    function deptRename(i) {
+      const l = getDepartments(), old = l[i];
+      const name = (prompt('Rename department', old) || '').trim();
+      if (!name || name === old) return;
+      if (l.some((x, j) => j !== i && sameName(x, name))) { showToast('Department already exists', 'error'); return; }
+      l[i] = name; setDepartments(l);
+      setEmployees(getEmployees().map(e => e.dept === old ? { ...e, dept: name } : e));
+      setDesignations(getDesignations().map(d => d.dept === old ? { ...d, dept: name } : d));
+      addActivity(`Renamed department <strong>${esc(old)}</strong> to <strong>${esc(name)}</strong>`, 'blue');
+      showToast('Department renamed', 'success');
+      refreshCurrentPage();
+    }
+
+    function deptDelete(i) {
+      const l = getDepartments(), name = l[i];
+      const n = getEmployees().filter(e => e.dept === name).length;
+      if (n) { showToast(n + ' employee(s) are in ' + name + '. Move them first', 'error'); return; }
+      if (!confirm('Delete department "' + name + '"?')) return;
+      l.splice(i, 1); setDepartments(l);
+      setDesignations(getDesignations().map(d => d.dept === name ? { ...d, dept: '' } : d));
+      addActivity(`Deleted department <strong>${esc(name)}</strong>`, 'red');
+      showToast('Department deleted', 'success');
+      refreshCurrentPage();
+    }
+
+    function desigAdd() {
+      const name = document.getElementById('desigNew').value.trim();
+      const dept = document.getElementById('desigDept').value;
+      if (!name) { showToast('Enter a designation name', 'error'); return; }
+      if (getDesignations().some(d => sameName(d.name, name) && sameName(d.dept, dept))) { showToast('Designation already exists', 'error'); return; }
+      addDesignation(name, dept);
+      showToast('Designation added', 'success');
+      refreshCurrentPage();
+    }
+
+    function desigRename(id) {
+      const l = getDesignations(), d = l.find(x => x.id === id);
+      if (!d) return;
+      const name = (prompt('Rename designation', d.name) || '').trim();
+      if (!name || name === d.name) return;
+      if (l.some(x => x.id !== id && sameName(x.name, name) && sameName(x.dept, d.dept))) { showToast('Designation already exists', 'error'); return; }
+      const old = d.name; d.name = name; setDesignations(l);
+      setEmployees(getEmployees().map(e => e.role === old ? { ...e, role: name } : e));
+      addActivity(`Renamed designation <strong>${esc(old)}</strong> to <strong>${esc(name)}</strong>`, 'blue');
+      showToast('Designation renamed', 'success');
+      refreshCurrentPage();
+    }
+
+    function desigDelete(id) {
+      const l = getDesignations(), d = l.find(x => x.id === id);
+      if (!d) return;
+      const n = getEmployees().filter(e => e.role === d.name).length;
+      if (n) { showToast(n + ' employee(s) hold ' + d.name + '. Change them first', 'error'); return; }
+      if (!confirm('Delete designation "' + d.name + '"?')) return;
+      setDesignations(l.filter(x => x.id !== id));
+      addActivity(`Deleted designation <strong>${esc(d.name)}</strong>`, 'red');
+      showToast('Designation deleted', 'success');
+      refreshCurrentPage();
+    }
+
+    function renderDepartments() {
+      const emps = getEmployees(), depts = getDepartments(), desigs = getDesignations();
+      const inp = 'padding:.55rem .75rem; border:1px solid var(--border); border-radius:8px; font-family:inherit; font-size:.85rem; flex:1; min-width:150px';
+      return `
+        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,520px),1fr)); gap:1.25rem; align-items:start">
+          <div class="card" style="min-width:0">
+            <div class="card-header"><h2>Departments (${depts.length})</h2></div>
+            <div class="card-body" style="padding:1.25rem">
+              <div style="display:flex; gap:.5rem; flex-wrap:wrap; margin-bottom:1rem">
+                <input type="text" id="deptNew" placeholder="New department name" style="${inp}" onkeydown="if(event.key==='Enter'){event.preventDefault();deptAdd()}" />
+                <button class="btn btn-primary" onclick="deptAdd()">+ Add Department</button>
+              </div>
+              <div style="overflow-x:auto"><table>
+                <thead><tr><th>Department</th><th>Employees</th><th>Designations</th><th>Actions</th></tr></thead>
+                <tbody>${depts.length ? depts.map((d, i) => `
+                  <tr><td><strong>${esc(d)}</strong></td>
+                  <td>${emps.filter(e => e.dept === d).length}</td>
+                  <td>${desigs.filter(x => sameName(x.dept, d)).length}</td>
+                  <td><div class="btn-group" style="flex-wrap:nowrap"><button class="btn btn-edit" onclick="deptRename(${i})">Rename</button><button class="btn btn-delete" onclick="deptDelete(${i})">Delete</button></div></td></tr>`).join('') : '<tr><td colspan="4" class="dept-tag">No departments yet.</td></tr>'}
+                </tbody>
+              </table></div>
+            </div>
+          </div>
+          <div class="card" style="min-width:0">
+            <div class="card-header"><h2>Designations (${desigs.length})</h2></div>
+            <div class="card-body" style="padding:1.25rem">
+              <div style="display:flex; gap:.5rem; flex-wrap:wrap; margin-bottom:1rem">
+                <input type="text" id="desigNew" placeholder="New designation name" style="${inp}" onkeydown="if(event.key==='Enter'){event.preventDefault();desigAdd()}" />
+                <select id="desigDept" style="${inp}"><option value="">All departments</option>${depts.map(d => `<option value="${esc(d)}">${esc(d)}</option>`).join('')}</select>
+                <button class="btn btn-primary" onclick="desigAdd()">+ Add Designation</button>
+              </div>
+              <div style="overflow-x:auto"><table>
+                <thead><tr><th>Designation</th><th>Department</th><th>Employees</th><th>Actions</th></tr></thead>
+                <tbody>${desigs.length ? desigs.map(d => `
+                  <tr><td><strong>${esc(d.name)}</strong></td>
+                  <td class="dept-tag">${d.dept ? esc(d.dept) : 'All departments'}</td>
+                  <td>${emps.filter(e => e.role === d.name).length}</td>
+                  <td><div class="btn-group" style="flex-wrap:nowrap"><button class="btn btn-edit" onclick="desigRename('${d.id}')">Rename</button><button class="btn btn-delete" onclick="desigDelete('${d.id}')">Delete</button></div></td></tr>`).join('') : '<tr><td colspan="4" class="dept-tag">No designations yet.</td></tr>'}
+                </tbody>
+              </table></div>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    // Suggestions for the appointment letter fields
+    function refreshOrgLists() {
+      document.getElementById('deptList').innerHTML = getDepartments().map(d => `<option value="${esc(d)}">`).join('');
+      document.getElementById('desigList').innerHTML = getDesignations().map(d => `<option value="${esc(d.name)}">`).join('');
+    }
+
+
+    // ========== PERFORMANCE (cycles, goals, appraisals) ==========
+    const PERF_COMP = ['Quality of Work', 'Productivity', 'Punctuality & Attendance', 'Teamwork', 'Communication', 'Initiative & Ownership'];
+    const PERF_SCALE = ['', '1 â€“ Unsatisfactory', '2 â€“ Needs Improvement', '3 â€“ Meets Expectations', '4 â€“ Exceeds Expectations', '5 â€“ Outstanding'];
+    const PERF_RECO = ['No action', 'Increment', 'Promotion', 'Increment + Promotion', 'Performance Improvement Plan'];
+    let perfTab = 'reviews', perfCycleId = null;
+
+    function getPCycles() {
+      let c = load(STORAGE_KEYS.perfCycles);
+      if (!c || !c.length) {
+        const d = new Date(), y = d.getFullYear(), m = d.getMonth();
+        const from = m >= 9 ? `${y}-10-01` : m >= 3 ? `${y}-04-01` : `${y - 1}-10-01`;
+        const to = m >= 9 ? `${y + 1}-03-31` : m >= 3 ? `${y}-09-30` : `${y}-03-31`;
+        c = [{ id: uid(), name: `${from.slice(0, 7)} to ${to.slice(0, 7)}`, from, to }];
+        save(STORAGE_KEYS.perfCycles, c);
+      }
+      return c;
+    }
+    function curCycle() { const cs = getPCycles(); const c = cs.find(x => x.id === perfCycleId) || cs[cs.length - 1]; perfCycleId = c.id; return c; }
+    function setPerfCycle(id) { perfCycleId = id; refreshCurrentPage(); }
+    function setPerfTab(t) { perfTab = t; refreshCurrentPage(); }
+    const getGoals = () => load(STORAGE_KEYS.perfGoals) || [];
+    const getReviews = () => load(STORAGE_KEYS.perfReviews) || [];
+    const getRev = (empId, cid) => getReviews().find(r => r.empId === empId && r.cycleId === cid);
+    const avgOf = a => a.reduce((t, v) => t + v, 0) / a.length;
+    function perfBand(v) { return v >= 4.5 ? ['active', 'Outstanding'] : v >= 3.5 ? ['approved', 'Exceeds'] : v >= 2.5 ? ['probation', 'Meets'] : v >= 1.5 ? ['on-leave', 'Needs Improvement'] : ['rejected', 'Unsatisfactory']; }
+    const bandBadge = v => { const b = perfBand(v); return `<span class="badge ${b[0]}">${v.toFixed(1)} Â· ${b[1]}</span>`; };
+    function goalPct(empId, cid) {
+      const g = getGoals().filter(x => x.empId === empId && x.cycleId === cid);
+      if (!g.length) return null;
+      const w = g.reduce((t, x) => t + (+x.weight || 1), 0);
+      return Math.round(g.reduce((t, x) => t + x.progress * (+x.weight || 1), 0) / w);
+    }
+    function attPct(empId, c) {
+      const r = getAttendance().filter(a => a.empId === empId && a.date >= c.from && a.date <= c.to && a.status !== 'holiday' && a.status !== 'leave');
+      if (!r.length) return null;
+      return Math.round(r.reduce((t, a) => t + (a.status === 'half-day' ? .5 : a.status === 'absent' ? 0 : 1), 0) / r.length * 100);
+    }
+    const pBar = p => `<div style="display:flex;align-items:center;gap:.5rem;min-width:130px"><div style="flex:1;height:8px;background:#e2e8f0;border-radius:99px;overflow:hidden"><div style="width:${p}%;height:100%;background:${p >= 100 ? '#10b981' : '#2563eb'}"></div></div><span class="dept-tag">${p}%</span></div>`;
+    const revStatus = r => !r ? '<span class="badge pending">Awaiting self-review</span>' : r.status === 'done' ? '<span class="badge active">Completed</span>' : r.self ? '<span class="badge probation">Self-review done</span>' : '<span class="badge pending">In progress</span>';
+    const empCell = e => `<div class="emp-cell"><div class="emp-avatar" style="background:${e?.color || '#64748b'}">${avImg(e)}</div><div><div class="emp-name">${esc(e?.name || 'Unknown')}</div><div class="dept-tag">${esc(e?.empCode || '')}${e?.dept ? ' Â· ' + esc(e.dept) : ''}</div></div></div>`;
+    const stat = (label, v, cls) => `<div class="stat-card"><div class="stat-info"><h3>${label}</h3><div class="value">${v}</div></div><div class="stat-icon ${cls}"></div></div>`;
+
+    function perfModalShow(title, body, foot) {
+      document.getElementById('perfBox').innerHTML = `<div class="modal-header"><div class="mh-brand"><div><div class="mh-co">R &amp; A Associates</div><h3>${title}</h3></div></div><button class="modal-close" onclick="closeModal('perfModal')">âœ•</button></div><div class="modal-body">${body}</div><div class="modal-footer">${foot}</div>`;
+      openModal('perfModal');
+    }
+    const rateGrid = (p, vals = []) => PERF_COMP.map((c, i) => `<div class="form-group"><label>${c}</label><select id="${p}${i}">${PERF_SCALE.map((s, v) => `<option value="${v || ''}" ${vals[i] === v && v ? 'selected' : ''}>${s || 'Select rating'}</option>`).join('')}</select></div>`).join('');
+    const readGrid = p => PERF_COMP.map((_, i) => +document.getElementById(p + i).value || 0);
+
+    // ----- Cycles -----
+    function openCycle() {
+      if (!isHR()) return;
+      perfModalShow('New Review Cycle', `<div class="form-group"><label>Cycle Name *</label><input id="pcName" placeholder="e.g. Annual Appraisal FY 2026-27" /></div>
+        <div class="form-row"><div class="form-group"><label>From *</label><input type="date" id="pcFrom" /></div><div class="form-group"><label>To *</label><input type="date" id="pcTo" /></div></div>`,
+        `<button class="btn btn-secondary" onclick="closeModal('perfModal')">Cancel</button><button class="btn btn-primary" onclick="saveCycle()">Create Cycle</button>`);
+    }
+    function saveCycle() {
+      const name = pcName.value.trim(), from = pcFrom.value, to = pcTo.value;
+      if (!name || !from || !to) { showToast('Fill all cycle fields', 'error'); return; }
+      if (to < from) { showToast('End date is before start date', 'error'); return; }
+      const cs = getPCycles(), c = { id: uid(), name, from, to };
+      cs.push(c); save(STORAGE_KEYS.perfCycles, cs); perfCycleId = c.id;
+      addActivity(`Review cycle <strong>${esc(name)}</strong> created`, 'blue');
+      closeModal('perfModal'); showToast('Review cycle created', 'success'); refreshCurrentPage();
+    }
+
+    // ----- Goals -----
+    function openGoal(id) {
+      const g = id ? getGoals().find(x => x.id === id) : null;
+      const hr = isHR(), lock = g && !hr && g.by === 'hr';
+      const emps = hr ? getEmployees().filter(e => e.status !== 'inactive') : [findEmployee(session.empId)];
+      const d = lock ? 'disabled' : '';
+      perfModalShow(g ? 'Update Goal' : 'Add Goal', `
+        <div class="form-group"><label>Employee *</label><select id="pgEmp" ${hr && !g ? '' : 'disabled'}>${emps.map(e => `<option value="${e.id}" ${g && g.empId === e.id ? 'selected' : ''}>${esc(e.name)} (${esc(e.empCode || '')})</option>`).join('')}</select></div>
+        <div class="form-group"><label>Goal *</label><input id="pgTitle" ${d} value="${esc(g?.title || '')}" /></div>
+        <div class="form-group"><label>Description / Measure</label><textarea id="pgDesc" rows="2" ${d}>${esc(g?.desc || '')}</textarea></div>
+        <div class="form-row"><div class="form-group"><label>Weight (%)</label><input type="number" id="pgW" min="1" max="100" ${d} value="${g?.weight ?? 20}" /></div>
+        <div class="form-group"><label>Target Date</label><input type="date" id="pgDue" ${d} value="${g?.due || curCycle().to}" /></div></div>
+        <div class="form-group"><label>Progress (%)</label><input type="number" id="pgProg" min="0" max="100" value="${g?.progress ?? 0}" /></div>`,
+        `<button class="btn btn-secondary" onclick="closeModal('perfModal')">Cancel</button><button class="btn btn-primary" onclick="saveGoal('${id || ''}')">Save Goal</button>`);
+    }
+    function saveGoal(id) {
+      const title = pgTitle.value.trim();
+      if (!title) { showToast('Enter the goal', 'error'); return; }
+      const list = getGoals(), progress = Math.min(100, Math.max(0, parseInt(pgProg.value, 10) || 0));
+      let g = id ? list.find(x => x.id === id) : null;
+      if (!g) { g = { id: uid(), cycleId: curCycle().id, empId: isHR() ? pgEmp.value : session.empId, by: isHR() ? 'hr' : 'employee' }; list.push(g); }
+      if (isHR() || g.by !== 'hr') Object.assign(g, { title, desc: pgDesc.value.trim(), weight: Math.max(1, parseInt(pgW.value, 10) || 1), due: pgDue.value });
+      g.progress = progress;
+      save(STORAGE_KEYS.perfGoals, list);
+      closeModal('perfModal'); showToast('Goal saved', 'success'); refreshCurrentPage();
+    }
+    function deleteGoal(id) {
+      const g = getGoals().find(x => x.id === id);
+      if (!g || (!isHR() && (g.by === 'hr' || g.empId !== session.empId))) return;
+      if (!confirm('Delete this goal?')) return;
+      save(STORAGE_KEYS.perfGoals, getGoals().filter(x => x.id !== id)); refreshCurrentPage();
+    }
+    const goalRows = (list, hr) => list.map(g => `<tr>${hr ? `<td>${empCell(findEmployee(g.empId))}</td>` : ''}
+      <td><strong>${esc(g.title)}</strong>${g.desc ? `<div class="dept-tag">${esc(g.desc)}</div>` : ''}${g.by === 'employee' ? '<div class="dept-tag">Self-set</div>' : ''}</td>
+      <td>${g.weight}%</td><td class="dept-tag">${formatDate(g.due)}</td><td>${pBar(g.progress)}</td>
+      <td><div class="btn-group"><button class="btn btn-edit" onclick="openGoal('${g.id}')">${hr ? 'Edit' : 'Update'}</button>${hr || g.by !== 'hr' ? `<button class="btn btn-delete" onclick="deleteGoal('${g.id}')">Delete</button>` : ''}</div></td></tr>`).join('');
+
+    // ----- Self assessment (employee) -----
+    function openSelfReview() {
+      const c = curCycle(), r = getRev(session.empId, c.id);
+      if (r?.status === 'done') return;
+      perfModalShow('Self Assessment', `<div class="dept-tag" style="margin-bottom:.75rem">${esc(c.name)} Â· Rate yourself honestly on each area.</div>${rateGrid('ps', r?.self?.ratings)}
+        <div class="form-group"><label>Key achievements &amp; comments</label><textarea id="psC" rows="3">${esc(r?.self?.comment || '')}</textarea></div>`,
+        `<button class="btn btn-secondary" onclick="closeModal('perfModal')">Cancel</button><button class="btn btn-primary" onclick="saveSelfReview()">Submit to HR</button>`);
+    }
+    function saveSelfReview() {
+      const ratings = readGrid('ps');
+      if (ratings.includes(0)) { showToast('Rate every area', 'error'); return; }
+      const c = curCycle(), list = getReviews();
+      let r = list.find(x => x.empId === session.empId && x.cycleId === c.id);
+      if (!r) { r = { id: uid(), empId: session.empId, cycleId: c.id, status: 'open' }; list.push(r); }
+      r.self = { ratings, comment: psC.value.trim(), at: new Date().toISOString() };
+      save(STORAGE_KEYS.perfReviews, list);
+      addActivity(`<strong>${esc(findEmployee(session.empId)?.name)}</strong> submitted a self-assessment`, 'blue');
+      closeModal('perfModal'); showToast('Self-assessment submitted', 'success'); refreshCurrentPage();
+    }
+
+    // ----- HR appraisal -----
+    function openReview(empId) {
+      if (!isHR()) return;
+      const c = curCycle(), e = findEmployee(empId), r = getRev(empId, c.id), h = r?.hr || {};
+      const self = r?.self ? `<div style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:.7rem .9rem;margin-bottom:.9rem;font-size:.8rem;line-height:1.6"><strong>Self assessment</strong> (avg ${avgOf(r.self.ratings).toFixed(1)})<br>${PERF_COMP.map((n, i) => `${n}: ${r.self.ratings[i]}`).join(' Â· ')}<br>${esc(r.self.comment) || 'â€”'}</div>` : '<div class="dept-tag" style="margin-bottom:.75rem">Employee has not submitted a self-assessment yet.</div>';
+      const g = goalPct(empId, c.id), a = attPct(empId, c);
+      perfModalShow(`Appraisal â€“ ${esc(e?.name)}`, `<div class="dept-tag" style="margin-bottom:.6rem">${esc(c.name)} Â· Goal achievement: ${g ?? 'â€”'}${g != null ? '%' : ''} Â· Attendance: ${a ?? 'â€”'}${a != null ? '%' : ''}</div>${self}${rateGrid('pr', h.ratings)}
+        <div class="form-group"><label>Strengths</label><textarea id="prS" rows="2">${esc(h.strengths || '')}</textarea></div>
+        <div class="form-group"><label>Areas to improve</label><textarea id="prI" rows="2">${esc(h.improve || '')}</textarea></div>
+        <div class="form-row"><div class="form-group"><label>Recommendation</label><select id="prR">${PERF_RECO.map(x => `<option ${h.reco === x ? 'selected' : ''}>${x}</option>`).join('')}</select></div>
+        <div class="form-group"><label>Increment (%)</label><input type="number" id="prP" min="0" max="100" step="0.5" value="${h.incr ?? ''}" /></div></div>`,
+        `<button class="btn btn-secondary" onclick="closeModal('perfModal')">Cancel</button><button class="btn btn-secondary" onclick="saveReview('${empId}',false)">Save Draft</button><button class="btn btn-primary" onclick="saveReview('${empId}',true)">Finalize</button>`);
+    }
+    function saveReview(empId, final) {
+      if (!isHR()) return;
+      const ratings = readGrid('pr');
+      if (final && ratings.includes(0)) { showToast('Rate every area to finalize', 'error'); return; }
+      const c = curCycle(), list = getReviews();
+      let r = list.find(x => x.empId === empId && x.cycleId === c.id);
+      if (!r) { r = { id: uid(), empId, cycleId: c.id }; list.push(r); }
+      r.hr = { ratings, strengths: prS.value.trim(), improve: prI.value.trim(), reco: prR.value, incr: prP.value };
+      r.status = final ? 'done' : 'open';
+      if (final) { r.avg = avgOf(ratings); r.finalizedAt = new Date().toISOString(); addActivity(`Appraisal finalized for <strong>${esc(findEmployee(empId)?.name)}</strong> (${perfBand(r.avg)[1]})`, 'green'); }
+      save(STORAGE_KEYS.perfReviews, list);
+      closeModal('perfModal'); showToast(final ? 'Appraisal finalized' : 'Draft saved', 'success'); refreshCurrentPage();
+    }
+    function reopenReview(empId) {
+      const c = curCycle(), list = getReviews(), r = list.find(x => x.empId === empId && x.cycleId === c.id);
+      if (!isHR() || !r || !confirm('Re-open this appraisal for changes?')) return;
+      r.status = 'open'; delete r.avg; save(STORAGE_KEYS.perfReviews, list); refreshCurrentPage();
+    }
+    function exportPerfCSV() {
+      const c = curCycle(), q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+      const rows = [['Emp ID', 'Name', 'Department', 'Goals %', 'Attendance %', 'Self Avg', 'Final Rating', 'Band', 'Recommendation', 'Increment %', 'Status']];
+      getEmployees().filter(e => e.status !== 'inactive').forEach(e => {
+        const r = getRev(e.id, c.id);
+        rows.push([e.empCode, e.name, e.dept, goalPct(e.id, c.id) ?? '', attPct(e.id, c) ?? '', r?.self ? avgOf(r.self.ratings).toFixed(1) : '', r?.avg ? r.avg.toFixed(1) : '', r?.avg ? perfBand(r.avg)[1] : '', r?.hr?.reco || '', r?.hr?.incr || '', r?.status === 'done' ? 'Completed' : r?.self ? 'Self-review done' : 'Pending']);
+      });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([rows.map(r => r.map(q).join(',')).join('\n')], { type: 'text/csv' }));
+      a.download = `performance-${c.from}-to-${c.to}.csv`; a.click();
+    }
+
+    // ----- Pages -----
+    function renderPerformance() {
+      const c = curCycle(), emps = getEmployees().filter(e => e.status !== 'inactive');
+      const revs = emps.map(e => getRev(e.id, c.id)), done = revs.filter(r => r?.status === 'done');
+      const goals = getGoals().filter(g => g.cycleId === c.id);
+      const tabBtn = (k, l) => `<button class="btn ${perfTab === k ? 'btn-primary' : 'btn-secondary'}" style="padding:.45rem .9rem" onclick="setPerfTab('${k}')">${l}</button>`;
+      const body = perfTab === 'reviews' ? `<table><thead><tr><th>Employee</th><th>Goals</th><th>Attendance</th><th>Self</th><th>Final Rating</th><th>Status</th><th>Action</th></tr></thead><tbody>
+        ${emps.map(e => { const r = getRev(e.id, c.id), g = goalPct(e.id, c.id), a = attPct(e.id, c); return `<tr><td>${empCell(e)}</td>
+          <td>${g == null ? '<span class="dept-tag">No goals</span>' : pBar(g)}</td><td class="dept-tag">${a == null ? 'â€”' : a + '%'}</td>
+          <td class="dept-tag">${r?.self ? avgOf(r.self.ratings).toFixed(1) : 'â€”'}</td><td>${r?.status === 'done' ? bandBadge(r.avg) : '<span class="dept-tag">â€”</span>'}${r?.status === 'done' && r.hr.reco !== 'No action' ? `<div class="dept-tag">${esc(r.hr.reco)}${r.hr.incr ? ' Â· ' + esc(r.hr.incr) + '%' : ''}</div>` : ''}</td>
+          <td>${revStatus(r)}</td><td><div class="btn-group"><button class="btn ${r?.status === 'done' ? 'btn-secondary' : 'btn-primary'}" onclick="openReview('${e.id}')">${r?.status === 'done' ? 'View' : 'Review'}</button>${r?.status === 'done' ? `<button class="btn btn-edit" onclick="reopenReview('${e.id}')">Re-open</button>` : ''}</div></td></tr>`; }).join('') || '<tr><td colspan="7" class="empty-state">No active employees</td></tr>'}</tbody></table>`
+        : goals.length ? `<table><thead><tr><th>Employee</th><th>Goal</th><th>Weight</th><th>Target</th><th>Progress</th><th>Action</th></tr></thead><tbody>${goalRows(goals, true)}</tbody></table>` : '<div class="empty-state">No goals set for this cycle. Click â€œ+ Add Goalâ€.</div>';
+      return `
+        <div class="stats-grid">
+          ${stat('Employees in Review', emps.length, 'blue')}${stat('Self-reviews Submitted', revs.filter(r => r?.self).length, 'purple')}
+          ${stat('Appraisals Completed', done.length, 'green')}${stat('Average Rating', done.length ? avgOf(done.map(r => r.avg)).toFixed(1) : 'â€”', 'amber')}
+        </div>
+        <div class="card">
+          <div class="card-header" style="flex-wrap:wrap;gap:.6rem">
+            <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center"><select onchange="setPerfCycle(this.value)" style="padding:.45rem .7rem;border:1px solid var(--border);border-radius:8px">${getPCycles().map(x => `<option value="${x.id}" ${x.id === c.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select>${tabBtn('reviews', 'Appraisals')}${tabBtn('goals', 'Goals')}</div>
+            <div class="btn-group"><button class="btn btn-secondary" onclick="openCycle()">+ New Cycle</button><button class="btn btn-secondary" onclick="exportPerfCSV()">Export CSV</button>${perfTab === 'goals' ? '<button class="btn btn-primary" onclick="openGoal()">+ Add Goal</button>' : ''}</div>
+          </div>
+          <div class="card-body table-wrap">${body}</div>
+        </div>
+        <p class="dept-tag" style="padding:1rem 0;line-height:1.6">Cycle: ${formatDate(c.from)} â€“ ${formatDate(c.to)}. Employees see their goals and self-assess under â€œMy Performanceâ€; goal % is weight-based; attendance % comes from marked attendance in the cycle (holidays and leave excluded). Final rating = average of HR ratings.</p>`;
+    }
+
+    function renderMyPerf() {
+      const c = curCycle(), r = getRev(session?.empId, c.id), mine = getGoals().filter(g => g.empId === session?.empId && g.cycleId === c.id);
+      const result = r?.status === 'done' ? `<div style="padding:1.25rem;line-height:1.8">${bandBadge(r.avg)}<div style="margin-top:.6rem;font-size:.85rem"><strong>Ratings:</strong> ${PERF_COMP.map((n, i) => `${n}: ${r.hr.ratings[i]}`).join(' Â· ')}<br><strong>Strengths:</strong> ${esc(r.hr.strengths) || 'â€”'}<br><strong>Areas to improve:</strong> ${esc(r.hr.improve) || 'â€”'}</div></div>` : '';
+      return `
+        <div class="card"><div class="card-header"><h2>My Goals â€“ ${esc(c.name)}</h2><button class="btn btn-primary" style="padding:.5rem 1rem;font-size:.8rem" onclick="openGoal()">+ Add Goal</button></div>
+          <div class="card-body table-wrap">${mine.length ? `<table><thead><tr><th>Goal</th><th>Weight</th><th>Target</th><th>Progress</th><th>Action</th></tr></thead><tbody>${goalRows(mine, false)}</tbody></table>` : '<div class="empty-state">No goals yet. Add your own or wait for HR to assign them.</div>'}</div></div>
+        <div class="card" style="margin-top:1.25rem"><div class="card-header"><h2>My Appraisal</h2><div>${revStatus(r)} ${r?.status === 'done' ? '' : `<button class="btn btn-primary" style="margin-left:.5rem" onclick="openSelfReview()">${r?.self ? 'Edit Self Assessment' : 'Start Self Assessment'}</button>`}</div></div>
+          ${result || `<div class="empty-state">${r?.self ? 'Your self-assessment is with HR. The result appears here once finalized.' : 'Complete your self-assessment to begin the appraisal.'}</div>`}</div>`;
+    }
+
+
+    // ========== RECRUITMENT (Company Secretarial & Legal practice) ==========
+    const REC_ROLES = ['Company Secretary', 'Assistant Company Secretary', 'Legal Associate', 'Senior Legal Associate', 'Legal Manager', 'Compliance Executive', 'Paralegal', 'Articled Assistant / CS Trainee', 'Legal Intern', 'Drafting & Contracts Executive', 'ROC / MCA Filing Executive', 'Office Administrator'];
+    const REC_AREAS = ['Company Secretarial', 'Corporate & Commercial Law', 'Litigation', 'ROC / MCA Compliance', 'SEBI / LODR Compliance', 'FEMA / RBI', 'Contracts & Drafting', 'IPR / Trademarks', 'Taxation & GST Law', 'Due Diligence & M&A', 'Other'];
+    const REC_QUAL = ['CS (Qualified â€“ ACS/FCS)', 'CS Executive passed', 'CS Professional appearing', 'LLB', 'LLM', 'LLB + CS', 'CA', 'B.Com / M.Com', 'MBA', 'Other'];
+    const REC_TYPES = ['Full-time', 'Articleship / Traineeship', 'Contract', 'Internship'];
+    const REC_SRC = ['Referral', 'LinkedIn', 'Naukri', 'ICSI Placement', 'Bar Association', 'Campus', 'Walk-in', 'Other'];
+    const REC_STAGES = ['Applied', 'Screening', 'Technical Interview', 'Partner / Final Interview', 'Offer', 'Hired', 'Rejected'];
+    let recTab = 'cands', recStageF = 'all', recJobF = 'all';
+    const getJobs = () => load(STORAGE_KEYS.recJobs) || [];
+    const getCands = () => load(STORAGE_KEYS.recCands) || [];
+    const opts = (a, v) => a.map(x => `<option ${x === v ? 'selected' : ''}>${x}</option>`).join('');
+    const stageBadge = s => `<span class="badge ${{ Hired: 'active', Rejected: 'rejected', Offer: 'approved', Applied: 'pending' }[s] || 'probation'}">${s}</span>`;
+    const jobOf = id => getJobs().find(j => j.id === id);
+    function setRec(k, v) { if (k === 'tab') recTab = v; else if (k === 'stage') recStageF = v; else recJobF = v; refreshCurrentPage(); }
+
+    function openJob(id) {
+      const j = id ? jobOf(id) : {};
+      perfModalShow(id ? 'Edit Job Opening' : 'New Job Opening', `
+        <div class="form-row"><div class="form-group"><label>Position *</label><input id="rjT" list="rjRoles" value="${esc(j.title || '')}" /><datalist id="rjRoles">${REC_ROLES.map(r => `<option value="${r}">`).join('')}</datalist></div>
+        <div class="form-group"><label>Department</label><input id="rjD" list="deptList" value="${esc(j.dept || '')}" /></div></div>
+        <div class="form-row"><div class="form-group"><label>Practice Area</label><select id="rjA">${opts(REC_AREAS, j.area)}</select></div>
+        <div class="form-group"><label>Employment Type</label><select id="rjE">${opts(REC_TYPES, j.type)}</select></div></div>
+        <div class="form-group"><label>Required Qualification</label><select id="rjQ">${opts(REC_QUAL, j.qual)}</select></div>
+        <div class="form-row"><div class="form-group"><label>Experience (years)</label><input id="rjX" placeholder="e.g. 2-5" value="${esc(j.exp || '')}" /></div>
+        <div class="form-group"><label>Vacancies</label><input type="number" id="rjV" min="1" value="${j.vacancies || 1}" /></div></div>
+        <div class="form-row"><div class="form-group"><label>Salary Range (CTC / month)</label><input id="rjS" placeholder="e.g. â‚¹25,000 â€“ 40,000" value="${esc(j.salary || '')}" /></div>
+        <div class="form-group"><label>Location</label><input id="rjL" value="${esc(j.loc || '')}" /></div></div>
+        <div class="form-group"><label>Key Skills / Responsibilities</label><textarea id="rjR" rows="3" placeholder="e.g. ROC filings (MGT-7, AOC-4), board &amp; general meeting minutes, SEBI LODR, drafting agreements">${esc(j.desc || '')}</textarea></div>
+        <div class="form-group"><label>Status</label><select id="rjSt">${opts(['Open', 'On Hold', 'Closed'], j.status)}</select></div>`,
+        `<button class="btn btn-secondary" onclick="closeModal('perfModal')">Cancel</button><button class="btn btn-primary" onclick="saveJob('${id || ''}')">Save Opening</button>`);
+    }
+    function saveJob(id) {
+      const title = rjT.value.trim(); if (!title) { showToast('Enter the position', 'error'); return; }
+      const list = getJobs(); let j = id ? list.find(x => x.id === id) : null;
+      if (!j) { j = { id: uid(), posted: new Date().toISOString().slice(0, 10) }; list.unshift(j); }
+      Object.assign(j, { title, dept: rjD.value.trim(), area: rjA.value, type: rjE.value, qual: rjQ.value, exp: rjX.value.trim(), vacancies: Math.max(1, +rjV.value || 1), salary: rjS.value.trim(), loc: rjL.value.trim(), desc: rjR.value.trim(), status: rjSt.value });
+      save(STORAGE_KEYS.recJobs, list); addActivity(`Job opening <strong>${esc(title)}</strong> ${id ? 'updated' : 'posted'}`, 'blue');
+      closeModal('perfModal'); showToast('Opening saved', 'success'); refreshCurrentPage();
+    }
+    function deleteJob(id) {
+      if (getCands().some(c => c.jobId === id)) { showToast('Remove or reassign its candidates first (or set status to Closed)', 'error'); return; }
+      if (!confirm('Delete this opening?')) return;
+      save(STORAGE_KEYS.recJobs, getJobs().filter(j => j.id !== id)); refreshCurrentPage();
+    }
+
+    function openCand(id) {
+      const jobs = getJobs(); if (!jobs.length) { showToast('Create a job opening first', 'error'); setRec('tab', 'jobs'); return; }
+      const c = id ? getCands().find(x => x.id === id) : {};
+      perfModalShow(id ? 'Edit Candidate' : 'Add Candidate', `
+        <div class="form-group"><label>Applying for *</label><select id="rcJ">${jobs.map(j => `<option value="${j.id}" ${c.jobId === j.id ? 'selected' : ''}>${esc(j.title)}${j.status !== 'Open' ? ' (' + j.status + ')' : ''}</option>`).join('')}</select></div>
+        <div class="form-row"><div class="form-group"><label>Full Name *</label><input id="rcN" value="${esc(c.name || '')}" /></div><div class="form-group"><label>Phone</label><input id="rcP" value="${esc(c.phone || '')}" /></div></div>
+        <div class="form-row"><div class="form-group"><label>Email</label><input type="email" id="rcE" value="${esc(c.email || '')}" /></div><div class="form-group"><label>Source</label><select id="rcSo">${opts(REC_SRC, c.source)}</select></div></div>
+        <div class="form-row"><div class="form-group"><label>Qualification</label><select id="rcQ">${opts(REC_QUAL, c.qual)}</select></div><div class="form-group"><label>ICSI Membership / Bar Enrolment No.</label><input id="rcM" value="${esc(c.memNo || '')}" /></div></div>
+        <div class="form-row"><div class="form-group"><label>Experience (years)</label><input type="number" id="rcX" min="0" step="0.5" value="${c.exp ?? ''}" /></div><div class="form-group"><label>Current Employer / Firm</label><input id="rcC" value="${esc(c.employer || '')}" /></div></div>
+        <div class="form-row"><div class="form-group"><label>Current CTC (â‚¹/yr)</label><input type="number" id="rcCC" value="${c.cctc ?? ''}" /></div><div class="form-group"><label>Expected CTC (â‚¹/yr)</label><input type="number" id="rcEC" value="${c.ectc ?? ''}" /></div></div>
+        <div class="form-row"><div class="form-group"><label>Notice Period (days)</label><input type="number" id="rcNP" value="${c.notice ?? ''}" /></div><div class="form-group"><label>Interview Date</label><input type="date" id="rcD" value="${c.interview || ''}" /></div></div>
+        <div class="form-row"><div class="form-group"><label>Stage</label><select id="rcS">${opts(REC_STAGES, c.stage)}</select></div><div class="form-group"><label>Rating (1-5)</label><input type="number" id="rcR" min="1" max="5" value="${c.rating ?? ''}" /></div></div>
+        <div class="form-group"><label>Interview Notes / Feedback</label><textarea id="rcNo" rows="2">${esc(c.notes || '')}</textarea></div>`,
+        `<button class="btn btn-secondary" onclick="closeModal('perfModal')">Cancel</button><button class="btn btn-primary" onclick="saveCand('${id || ''}')">Save Candidate</button>`);
+    }
+    function saveCand(id) {
+      const name = rcN.value.trim(); if (!name) { showToast('Enter candidate name', 'error'); return; }
+      const list = getCands(); let c = id ? list.find(x => x.id === id) : null;
+      if (!c) { c = { id: uid(), applied: new Date().toISOString().slice(0, 10) }; list.unshift(c); }
+      Object.assign(c, { jobId: rcJ.value, name, phone: rcP.value.trim(), email: rcE.value.trim(), source: rcSo.value, qual: rcQ.value, memNo: rcM.value.trim(), exp: rcX.value, employer: rcC.value.trim(), cctc: rcCC.value, ectc: rcEC.value, notice: rcNP.value, interview: rcD.value, stage: rcS.value, rating: rcR.value, notes: rcNo.value.trim() });
+      save(STORAGE_KEYS.recCands, list); closeModal('perfModal'); showToast('Candidate saved', 'success'); refreshCurrentPage();
+    }
+    function setCandStage(id, stage) {
+      const list = getCands(), c = list.find(x => x.id === id); if (!c) return;
+      c.stage = stage; save(STORAGE_KEYS.recCands, list);
+      addActivity(`Candidate <strong>${esc(c.name)}</strong> moved to ${stage}`, stage === 'Rejected' ? 'red' : 'blue'); refreshCurrentPage();
+    }
+    function deleteCand(id) { if (confirm('Delete this candidate?')) { save(STORAGE_KEYS.recCands, getCands().filter(c => c.id !== id)); refreshCurrentPage(); } }
+    function hireCand(id) {
+      const list = getCands(), c = list.find(x => x.id === id), j = jobOf(c?.jobId); if (!c || c.empId) return;
+      if (!confirm(`Add ${c.name} as an employee (probation) and mark as Hired?`)) return;
+      const emps = getEmployees(), emp = { id: uid(), name: c.name, empCode: nextEmpCode(), dob: '', email: c.email, dept: j?.dept || '', role: j?.title || '', status: 'probation', phone: c.phone, doj: new Date().toISOString().slice(0, 10), relievingDate: '', avatar: getInitials(c.name), color: randomColor(), createdAt: new Date().toISOString() };
+      emps.unshift(emp); setEmployees(emps); c.stage = 'Hired'; c.empId = emp.id; save(STORAGE_KEYS.recCands, list);
+      addActivity(`<strong>${esc(c.name)}</strong> hired as ${esc(emp.role)}`, 'green');
+      showToast('Employee created. Add date of birth in Employees (used as login password)', 'success'); refreshCurrentPage();
+    }
+
+    function renderRecruitment() {
+      const jobs = getJobs(), all = getCands(), jn = id => jobOf(id)?.title || 'â€”';
+      const cands = all.filter(c => (recStageF === 'all' || c.stage === recStageF) && (recJobF === 'all' || c.jobId === recJobF));
+      const n = f => all.filter(f).length, tb = (k, l) => `<button class="btn ${recTab === k ? 'btn-primary' : 'btn-secondary'}" style="padding:.45rem .9rem" onclick="setRec('tab','${k}')">${l}</button>`;
+      const sel = 'padding:.45rem .7rem;border:1px solid var(--border);border-radius:8px';
+      const candTable = cands.length ? `<table><thead><tr><th>Candidate</th><th>Position</th><th>Qualification</th><th>Exp.</th><th>CTC (cur â†’ exp)</th><th>Notice</th><th>Stage</th><th>Action</th></tr></thead><tbody>${cands.map(c => `<tr>
+          <td><strong>${esc(c.name)}</strong><div class="dept-tag">${esc(c.phone)}${c.email ? ' Â· ' + esc(c.email) : ''}</div><div class="dept-tag">${esc(c.source || '')}${c.rating ? ' Â· â˜…' + c.rating : ''}</div></td>
+          <td>${esc(jn(c.jobId))}</td><td class="dept-tag">${esc(c.qual || '')}${c.memNo ? '<div>' + esc(c.memNo) + '</div>' : ''}</td><td>${c.exp !== '' && c.exp != null ? c.exp + ' yr' : 'â€”'}</td>
+          <td class="dept-tag">${c.cctc ? inr(+c.cctc) : 'â€”'} â†’ ${c.ectc ? inr(+c.ectc) : 'â€”'}</td><td class="dept-tag">${c.notice ? c.notice + ' d' : 'â€”'}</td>
+          <td>${c.empId ? stageBadge('Hired') : `<select class="att-status" onchange="setCandStage('${c.id}',this.value)">${opts(REC_STAGES, c.stage)}</select>`}${c.interview ? `<div class="dept-tag">Interview ${formatDate(c.interview)}</div>` : ''}</td>
+          <td><div class="btn-group" style="flex-wrap:nowrap"><button class="btn btn-edit" onclick="openCand('${c.id}')">Edit</button>${c.stage === 'Offer' && !c.empId ? `<button class="btn btn-approve" onclick="hireCand('${c.id}')">Hire</button>` : ''}<button class="btn btn-delete" onclick="deleteCand('${c.id}')">Delete</button></div></td></tr>`).join('')}</tbody></table>` : '<div class="empty-state">No candidates found. Click â€œ+ Add Candidateâ€.</div>';
+      const jobTable = jobs.length ? `<table><thead><tr><th>Position</th><th>Practice Area</th><th>Qualification</th><th>Exp.</th><th>Type</th><th>Vacancies</th><th>Candidates</th><th>Status</th><th>Action</th></tr></thead><tbody>${jobs.map(j => `<tr>
+          <td><strong>${esc(j.title)}</strong><div class="dept-tag">${esc(j.dept)}${j.loc ? ' Â· ' + esc(j.loc) : ''}${j.salary ? ' Â· ' + esc(j.salary) : ''}</div></td><td class="dept-tag">${esc(j.area)}</td><td class="dept-tag">${esc(j.qual)}</td><td>${esc(j.exp) || 'â€”'}</td><td class="dept-tag">${esc(j.type)}</td>
+          <td>${j.vacancies} <span class="dept-tag">(${n(c => c.jobId === j.id && c.stage === 'Hired')} filled)</span></td><td>${n(c => c.jobId === j.id)}</td>
+          <td><span class="badge ${{ Open: 'active', 'On Hold': 'pending', Closed: 'inactive' }[j.status]}">${j.status}</span></td>
+          <td><div class="btn-group" style="flex-wrap:nowrap"><button class="btn btn-edit" onclick="openJob('${j.id}')">Edit</button><button class="btn btn-delete" onclick="deleteJob('${j.id}')">Delete</button></div></td></tr>`).join('')}</tbody></table>` : '<div class="empty-state">No openings yet. Click â€œ+ New Openingâ€.</div>';
+      return `
+        <div class="stats-grid">${stat('Open Positions', jobs.filter(j => j.status === 'Open').length, 'blue')}${stat('Active Candidates', n(c => !['Hired', 'Rejected'].includes(c.stage)), 'purple')}${stat('In Interview', n(c => /Interview/.test(c.stage)), 'amber')}${stat('Offers / Hired', n(c => c.stage === 'Offer') + ' / ' + n(c => c.stage === 'Hired'), 'green')}</div>
+        <div class="card"><div class="card-header" style="flex-wrap:wrap;gap:.6rem">
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">${tb('cands', 'Candidates')}${tb('jobs', 'Job Openings')}
+            ${recTab === 'cands' ? `<select style="${sel}" onchange="setRec('stage',this.value)"><option value="all">All stages</option>${REC_STAGES.map(s => `<option ${s === recStageF ? 'selected' : ''}>${s}</option>`).join('')}</select><select style="${sel}" onchange="setRec('job',this.value)"><option value="all">All positions</option>${jobs.map(j => `<option value="${j.id}" ${j.id === recJobF ? 'selected' : ''}>${esc(j.title)}</option>`).join('')}</select>` : ''}</div>
+          <div class="btn-group"><button class="btn btn-secondary" onclick="openJob()">+ New Opening</button><button class="btn btn-primary" onclick="openCand()">+ Add Candidate</button></div></div>
+          <div class="card-body table-wrap">${recTab === 'cands' ? candTable : jobTable}</div></div>
+        <p class="dept-tag" style="padding:1rem 0;line-height:1.6">Pipeline: Applied â†’ Screening â†’ Technical Interview â†’ Partner / Final Interview â†’ Offer â†’ Hired. â€œHireâ€ on an Offer-stage candidate creates the employee record (probation) from the opening's position and department.</p>`;
+    }
+
+
+    // ========== GREETING POPUPS (festivals, birthdays, achievements) ==========
+    const POPUP_IDEAS = ['Happy Independence Day', 'Happy Republic Day', 'Happy Gandhi Jayanti', 'Happy Vijaya Dashami', 'Happy Diwali', 'Happy Holi', 'Happy New Year', 'Happy Ganesh Chaturthi', 'Happy Eid', 'Merry Christmas', 'Happy Sankranti', 'Happy Ugadi'];
+    const ACHIEVE_IDEAS = ['Passed CS Executive Exam', 'Passed CS Professional Exam', 'Became ACS / FCS Member', 'Passed LLB / LLM', 'Passed CA Exam', 'Best Performer Award', 'Employee of the Month', 'Work Anniversary', 'Promotion', 'Certification Completed'];
+    const BDAY_MSG = 'Wishing you a very Happy Birthday! May this year bring you success, good health and happiness. â€“ R & A Associates';
+    const POP_KINDS = { festival: 'Festival / Special Day', birthday: 'Birthday Wishes', achievement: 'Achievement / Congratulations' };
+    let popupImg = '', popupQueue = [];
+    const getPopups = () => load(STORAGE_KEYS.popups) || [];
+    const popType = p => p.type || 'festival';
+    const popFrom = p => p.from || p.date || '', popTo = p => p.to || p.from || p.date || '';
+    function popupOn(p, iso) {   // true when today falls inside the From - To period (yearly: month/day only, can span new year)
+      const f = popFrom(p), t = popTo(p); if (!f) return false;
+      if (!p.yearly) return iso >= f && iso <= t;
+      const md = iso.slice(5), a = f.slice(5), b = t.slice(5); return a <= b ? md >= a && md <= b : md >= a || md <= b;
+    }
+    const popRange = p => { const f = popFrom(p), t = popTo(p), fmt = d => formatDate(d), yr = d => d.replace(/,?\s*\d{4}$/, ''); return p.yearly ? 'Every ' + (f === t ? yr(fmt(f)) : yr(fmt(f)) + ' â€“ ' + yr(fmt(t))) : (f === t ? fmt(f) : fmt(f) + ' â€“ ' + fmt(t)); };
+    const localISO = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+    function popupPick(input) {
+      const f = input.files[0]; if (!f) return;
+      if (!f.type.startsWith('image/')) { showToast('Choose an image file', 'error'); input.value = ''; return; }
+      const r = new FileReader();
+      r.onload = () => {
+        const im = new Image();
+        im.onload = () => {   // shrink so it fits in browser storage
+          const k = Math.min(1, 1000 / Math.max(im.width, im.height)), c = document.createElement('canvas');
+          c.width = Math.round(im.width * k); c.height = Math.round(im.height * k);
+          const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(im, 0, 0, c.width, c.height);
+          popupImg = c.toDataURL('image/jpeg', .85);
+          document.getElementById('popPrev').innerHTML = `<img src="${popupImg}" style="max-height:110px;border-radius:8px;border:1px solid var(--border)" />`;
+        };
+        im.src = r.result;
+      };
+      r.readAsDataURL(f);
+    }
+    function popFormType() {
+      const t = popKind.value, show = (id, on) => document.getElementById(id).style.display = on ? '' : 'none';
+      show('popTitle', t !== 'birthday'); show('popEmp', t === 'achievement'); show('popDates', t !== 'birthday'); show('popMsg', t !== 'festival'); show('popYearlyWrap', t === 'festival');
+      popTitle.placeholder = t === 'achievement' ? 'Achievement e.g. Passed CS Executive Exam' : 'Occasion e.g. Happy Diwali';
+      popTitle.setAttribute('list', t === 'achievement' ? 'achIdeas' : 'popIdeas');
+      popMsg.placeholder = t === 'birthday' ? 'Birthday message (optional â€“ a default is used)' : 'Message (optional) e.g. Proud of your hard work!';
+    }
+    function addPopup() {
+      const t = popKind.value, title = popTitle.value.trim(), from = popFrom_.value, to = popTo_.value || popFrom_.value, msg = popMsg.value.trim(); let list = getPopups(), rec;
+      if (t === 'festival') { if (!title || !from || !popupImg) { showToast('Enter title, From date and choose an image', 'error'); return; } if (to < from) { showToast('To date cannot be before From date', 'error'); return; } rec = { type: t, title, date: from, from, to, image: popupImg, yearly: popYearly.checked }; }
+      else if (t === 'birthday') { list = list.filter(x => popType(x) !== 'birthday'); rec = { type: t, title: 'Birthday Wishes', image: popupImg, msg: msg || BDAY_MSG }; }
+      else { if (!popEmp.value || !title || !from) { showToast('Select employee, achievement and From date', 'error'); return; } if (to < from) { showToast('To date cannot be before From date', 'error'); return; } rec = { type: t, title, empId: popEmp.value, date: from, from, to, msg, image: popupImg }; }
+      list.push({ id: uid(), enabled: true, ...rec });
+      try { save(STORAGE_KEYS.popups, list); } catch { showToast('Image too large for browser storage â€“ use a smaller image or delete old popups', 'error'); return; }
+      popupImg = ''; showToast('Popup saved', 'success'); refreshCurrentPage();
+    }
+    function togglePopup(id) { const l = getPopups(), p = l.find(x => x.id === id); p.enabled = !p.enabled; save(STORAGE_KEYS.popups, l); refreshCurrentPage(); }
+    function deletePopup(id) { if (confirm('Delete this popup?')) { save(STORAGE_KEYS.popups, getPopups().filter(p => p.id !== id)); refreshCurrentPage(); } }
+
+
+    function editPopupDates(id) {
+      const p = getPopups().find(x => x.id === id); if (!p) return;
+      perfModalShow('Change display period', `<div class="dept-tag" style="margin-bottom:.8rem"><strong>${esc(p.title)}</strong> â€“ shown every login from the first date to the last date, all day.</div>
+        <div class="form-row"><div class="form-group"><label>From *</label><input type="date" id="epFrom" value="${popFrom(p)}" /></div><div class="form-group"><label>To *</label><input type="date" id="epTo" value="${popTo(p)}" /></div></div>
+        ${popType(p) === 'festival' ? `<label style="display:flex;gap:.4rem;align-items:center;font-size:.85rem"><input type="checkbox" id="epYear" ${p.yearly ? 'checked' : ''} /> Repeat every year</label>` : ''}`,
+        `<button class="btn btn-secondary" onclick="closeModal('perfModal')">Cancel</button><button class="btn btn-primary" onclick="saveEditPopup('${id}')">Save</button>`);
+    }
+    function saveEditPopup(id) {
+      const l = getPopups(), p = l.find(x => x.id === id), f = epFrom.value, t = epTo.value;
+      if (!f || !t || t < f) { showToast('Enter a valid From and To date', 'error'); return; }
+      p.from = f; p.to = t; p.date = f; if (document.getElementById('epYear')) p.yearly = epYear.checked;
+      save(STORAGE_KEYS.popups, l); closeModal('perfModal'); showToast('Display period updated', 'success'); refreshCurrentPage();
+    }
+
+    function itemsFor(p, iso, preview) {
+      const t = popType(p);
+      if (t === 'festival') return preview || popupOn(p, iso) ? [{ image: p.image }] : [];
+      if (t === 'achievement') { if (!preview && !popupOn(p, iso)) return []; const e = findEmployee(p.empId); return e ? [{ image: p.image, icon: 'ðŸ†', heading: `Congratulations ${e.name}! ðŸŽ‰`, sub: p.title, msg: p.msg }] : []; }
+      let emps = getEmployees().filter(e => e.status !== 'inactive' && /^\d{4}-\d{2}-\d{2}/.test(e.dob || '') && e.dob.slice(5, 10) === iso.slice(5));
+      if (preview && !emps.length) emps = getEmployees().slice(0, 1);
+      return emps.map(e => ({ image: p.image, icon: 'ðŸŽ‚', heading: `Happy Birthday, ${e.name}! ðŸŽ‚`, msg: p.msg }));
+    }
+    function showPopupImage(id) { const p = getPopups().find(x => x.id === id); if (p) { popupQueue = []; const it = itemsFor(p, localISO(), true); if (it.length) showPopupItem(it[0]); } }
+    function showPopupItem(it) {
+      document.getElementById('popupShow')?.remove();
+      const d = document.createElement('div'); d.id = 'popupShow';
+      d.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.65);z-index:9999;display:flex;align-items:center;justify-content:center;padding:1rem';
+      const top = it.image ? `<img src="${it.image}" style="display:block;max-width:100%;max-height:${it.heading ? '55vh' : 'calc(92vh - 1.2rem)'};border-radius:10px;margin:auto" />` : it.heading ? `<div style="font-size:4rem;text-align:center;padding:1.2rem;background:linear-gradient(135deg,#dbeafe,#ede9fe);border-radius:10px">${it.icon || 'ðŸŽ‰'}</div>` : '';
+      const txt = it.heading ? `<div style="padding:1rem 1rem .6rem;text-align:center"><div style="font-size:1.35rem;font-weight:700;color:#1e3a8a">${esc(it.heading)}</div>${it.sub ? `<div style="font-size:1.05rem;font-weight:600;margin-top:.3rem">${esc(it.sub)}</div>` : ''}${it.msg ? `<div style="margin-top:.6rem;color:#475569;line-height:1.6">${esc(it.msg)}</div>` : ''}</div>` : '';
+      d.innerHTML = `<div style="position:relative;max-width:min(92vw,${it.heading ? 520 : 760}px);max-height:92vh;overflow:auto;background:#fff;border-radius:14px;padding:.6rem;box-shadow:0 20px 40px rgba(0,0,0,.35)"><button onclick="closePopup()" title="Close" style="position:absolute;top:8px;right:8px;z-index:1;width:32px;height:32px;border-radius:50%;border:0;background:#0f172a;color:#fff;font-size:16px;cursor:pointer">âœ•</button>${top}${txt}</div>`;
+      d.addEventListener('click', e => { if (e.target === d) closePopup(); });
+      document.body.appendChild(d);
+      clearTimeout(popTimer); const s = popAutoSecs();
+      if (s > 0) popTimer = setTimeout(() => { if (document.getElementById('popupShow') === d) closePopup(); }, s * 1000);
+    }
+    // Auto-close: a popup closes itself after N seconds (default 30) unless the Close button is clicked first. 0 = never.
+    const popAutoSecs = () => { const v = (load(STORAGE_KEYS.popCfg) || {}).autoClose; return v === undefined || v === null || isNaN(+v) ? 30 : Math.max(0, +v); };
+    let popTimer = null;
+    function closePopup() { clearTimeout(popTimer); popTimer = null; document.getElementById('popupShow')?.remove(); if (popupQueue.length) showPopupItem(popupQueue.shift()); }
+    function savePopCfg() {
+      const v = parseInt(document.getElementById('popAuto').value, 10);
+      if (isNaN(v) || v < 0 || v > 3600) { showToast('Enter seconds between 0 and 3600', 'error'); return; }
+      save(STORAGE_KEYS.popCfg, { autoClose: v }); showToast(v ? 'Popups will auto-close after ' + v + ' seconds' : 'Auto-close turned off', 'success');
+    }
+    function checkPopups() {   // runs at every login: everything due today, whole day
+      if (!session) return;
+      const iso = localISO(); popupQueue = getPopups().filter(p => p.enabled).flatMap(p => itemsFor(p, iso, false));
+      if (popupQueue.length) closePopup();
+    }
+
+    function renderPopupCard() {
+      const iso = localISO(), emps = getEmployees().filter(e => e.status !== 'inactive');
+      const list = getPopups().slice().sort((a, b) => popFrom(a).localeCompare(popFrom(b)));
+      const st = p => popType(p) === 'birthday' ? 'Auto' : p.yearly ? (popupOn(p, iso) ? 'Showing now' : 'Every year') : popTo(p) < iso ? 'Past' : popFrom(p) > iso ? 'Upcoming' : 'Showing now';
+      const inp = 'padding:.5rem .7rem;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:.85rem';
+      return `
+        <div class="card">
+          <div class="card-header"><h2>Greeting Popups (Festival / Birthday / Achievement)</h2></div>
+          <div class="card-body" style="padding:1.25rem">
+            <div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin-bottom:1rem;padding:.7rem .9rem;background:#f8fafc;border-radius:8px"><label style="font-size:.85rem">Auto-close popup after</label><input id="popAuto" type="number" min="0" max="3600" value="${popAutoSecs()}" style="${inp};width:90px" /><span class="dept-tag">seconds (0 = stay until closed manually)</span><button class="btn btn-primary" style="padding:.5rem 1rem" onclick="savePopCfg()">Save</button></div>
+            <p class="dept-tag" style="margin-bottom:1rem;line-height:1.6">Popups show every time anyone logs in during the chosen period (From date to To date, all day). <strong>Birthday Wishes</strong> are automatic: set it up once and each employee's birthday (from their date of birth) triggers a popup. <strong>Achievement</strong> popups congratulate an employee on a chosen date.</p>
+            <div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin-bottom:1rem">
+              <select id="popKind" onchange="popFormType()" style="${inp}">${Object.entries(POP_KINDS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select>
+              <select id="popEmp" style="${inp};display:none"><option value="">Select employee</option>${emps.map(e => `<option value="${e.id}">${esc(e.name)}</option>`).join('')}</select>
+              <input id="popTitle" list="popIdeas" placeholder="Occasion e.g. Happy Diwali" style="${inp};flex:1;min-width:190px" />
+              <datalist id="popIdeas">${POPUP_IDEAS.map(x => `<option value="${x}">`).join('')}</datalist><datalist id="achIdeas">${ACHIEVE_IDEAS.map(x => `<option value="${x}">`).join('')}</datalist>
+              <span id="popDates" style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap"><label style="font-size:.78rem;display:flex;gap:.3rem;align-items:center">From <input type="date" id="popFrom_" style="${inp}" onchange="if(!popTo_.value||popTo_.value<this.value)popTo_.value=this.value" /></label><label style="font-size:.78rem;display:flex;gap:.3rem;align-items:center">To <input type="date" id="popTo_" style="${inp}" /></label></span>
+              <input type="file" id="popFile" accept="image/*" onchange="popupPick(this)" style="${inp};max-width:240px" />
+              <label id="popYearlyWrap" style="font-size:.8rem;display:flex;gap:.35rem;align-items:center"><input type="checkbox" id="popYearly" /> Repeat every year</label>
+              <textarea id="popMsg" rows="2" style="${inp};display:none;flex-basis:100%"></textarea>
+              <button class="btn btn-primary" style="padding:.55rem 1rem" onclick="addPopup()">+ Save Popup</button>
+            </div>
+            <div class="dept-tag" style="margin:-.4rem 0 .8rem">Image: required for festivals; optional for birthdays (shown above the wishes) and achievements (e.g. photo or certificate).</div>
+            <div id="popPrev" style="margin-bottom:1rem"></div>
+            <div class="table-wrap">${list.length ? `<table><thead><tr><th>Image</th><th>Type / Occasion</th><th>Date</th><th>Status</th><th>Action</th></tr></thead><tbody>${list.map(p => { const t = popType(p), e = t === 'achievement' ? findEmployee(p.empId) : null; return `<tr>
+              <td>${p.image ? `<img src="${p.image}" style="height:46px;border-radius:6px;border:1px solid var(--border)" />` : `<span style="font-size:1.6rem">${t === 'birthday' ? 'ðŸŽ‚' : 'ðŸ†'}</span>`}</td>
+              <td><strong>${esc(p.title)}</strong><div class="dept-tag">${POP_KINDS[t]}${e ? ' Â· ' + esc(e.name) : ''}</div></td>
+              <td class="dept-tag">${t === 'birthday' ? "On each employee's birthday" : popRange(p) + ' Â· All day'}</td>
+              <td><span class="badge ${!p.enabled ? 'inactive' : st(p) === 'Past' ? 'on-leave' : 'active'}">${p.enabled ? st(p) : 'Disabled'}</span></td>
+              <td><div class="btn-group" style="flex-wrap:nowrap"><button class="btn btn-edit" onclick="showPopupImage('${p.id}')">Preview</button>${t === 'birthday' ? '' : `<button class="btn btn-secondary" onclick="editPopupDates('${p.id}')">Dates</button>`}<button class="btn btn-secondary" onclick="togglePopup('${p.id}')">${p.enabled ? 'Disable' : 'Enable'}</button><button class="btn btn-delete" onclick="deletePopup('${p.id}')">Delete</button></div></td></tr>`; }).join('')}</tbody></table>` : '<div class="empty-state">No popups scheduled</div>'}</div>
+          </div>
+        </div>`;
+    }
+
+    // ========== SELF ATTENDANCE (selfie + location) ==========
+    let selfieStream = null, selfieGeo = null;
+    const getGeo = () => load(STORAGE_KEYS.geo) || {};
+    const getSelfies = () => load(STORAGE_KEYS.selfies) || [];
+    function distM(a, b, c, d) { const R = 6371000, r = x => x * Math.PI / 180, h = Math.sin(r(c - a) / 2) ** 2 + Math.cos(r(a)) * Math.cos(r(c)) * Math.sin(r(d - b) / 2) ** 2; return Math.round(2 * R * Math.asin(Math.sqrt(h))); }
+    function selfieStop() { selfieStream?.getTracks().forEach(t => t.stop()); selfieStream = null; }
+    const _closeModal = closeModal;
+    closeModal = function (id) { if (id === 'perfModal') selfieStop(); _closeModal(id); };
+
+    function openSelfie(kind) {
+      const iso = localISO(), r = getAttendance().find(a => a.empId === session.empId && a.date === iso);
+      if (dayOffInfo(iso).off) { showToast('Today is a holiday / weekly off', 'error'); return; }
+      if (r && (r.status === 'leave' || r.status === 'holiday')) { showToast('You are on approved leave today', 'error'); return; }
+      selfieGeo = null;
+      perfModalShow(kind === 'in' ? 'Check In â€“ Selfie' : 'Check Out â€“ Selfie', `
+        <video id="selfieVid" autoplay playsinline muted style="width:100%;max-height:300px;background:#0f172a;border-radius:10px;transform:scaleX(-1)"></video>
+        <div id="selfieMsg" class="dept-tag" style="margin-top:.6rem;line-height:1.6">Starting camera and locationâ€¦</div>${lateWarn(kind)}`,
+        `<button class="btn btn-secondary" onclick="closeModal('perfModal')">Cancel</button><button class="btn btn-primary" id="selfieBtn" onclick="selfieSubmit('${kind}')">Capture &amp; Submit</button>`);
+      navigator.mediaDevices?.getUserMedia({ video: { facingMode: 'user' }, audio: false }).then(st => { selfieStream = st; selfieVid.srcObject = st; })
+        .catch(() => { selfieMsg.textContent = 'Camera not available. Allow camera access (page must be on HTTPS or localhost).'; });
+      navigator.geolocation?.getCurrentPosition(pos => { selfieGeo = { lat: pos.coords.latitude, lng: pos.coords.longitude }; selfieMsg.textContent = 'Camera ready Â· Location captured. Look at the camera and tap Capture.'; },
+        () => { selfieMsg.textContent = 'Location blocked. Allow location access to mark attendance.'; }, { enableHighAccuracy: true, timeout: 15000 });
+    }
+    function selfieSubmitBase(kind, face) {
+      const v = document.getElementById('selfieVid');
+      if (!selfieStream || !v.videoWidth) { showToast('Camera not ready', 'error'); return; }
+      if (!selfieGeo) { showToast('Location not captured yet', 'error'); return; }
+      const g = getGeo(); let dist = null, ok = true;
+      if (g.lat != null && g.lng != null && g.radius) { dist = distM(selfieGeo.lat, selfieGeo.lng, +g.lat, +g.lng); ok = dist <= +g.radius; }
+      if (!ok) { showToast(`You are ${dist} m from the office (allowed ${g.radius} m)`, 'error'); return; }
+      const c = document.createElement('canvas'), k = 240 / v.videoWidth; c.width = 240; c.height = Math.round(v.videoHeight * k);
+      c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+      const photo = c.toDataURL('image/jpeg', .5), iso = localISO(), hm = new Date().toTimeString().slice(0, 5), now = new Date().toISOString();
+      const list = getAttendance(); let r = list.find(a => a.empId === session.empId && a.date === iso);
+      if (!r) { r = { id: uid(), empId: session.empId, date: iso, createdAt: now }; list.unshift(r); }
+      const geo = { lat: +selfieGeo.lat.toFixed(5), lng: +selfieGeo.lng.toFixed(5), dist };
+      if (kind === 'in') { r.inTime = hm; r.outTime = ''; r.status = officeClassify(hmToMin(hm), null).status; r.source = bioSourceLabel(); r.geoIn = geo;
+        if (r.status === 'late') r.lateApproval = { status: 'pending', reason: (document.getElementById('selfieReason')?.value || '').trim(), at: now }; else delete r.lateApproval; }
+      else { r.outTime = hm; let st = officeClassify(hmToMin(r.inTime), hmToMin(hm)).status; const ap = r.lateApproval?.status; if (st === 'late' && ap === 'excused') st = 'present'; if (ap === 'rejected') st = 'absent'; r.status = st; r.geoOut = geo; }
+      const sid = uid();
+      if (face && FACE_FLAG.includes(face.state)) { r.faceFlag = { status: 'pending', sid, state: face.state, d: face.d, kind }; if (!/ Â· Face/.test(r.source || '')) r.source = (r.source || 'Selfie') + ' Â· Face ' + FACE_LABEL[face.state].toLowerCase(); }
+      else if (face && face.state === 'match') delete r.faceFlag;
+      setAttendance(list);
+      const keep = new Set([...Array(3)].map((_, i) => localISO(new Date(Date.now() - i * 864e5))));   // keep photos for 3 days only (browser storage limit)
+      try { save(STORAGE_KEYS.selfies, [{ id: sid, empId: session.empId, date: iso, kind, time: hm, photo, ...(face ? { face: { state: face.state, d: face.d } } : {}), ...geo }, ...getSelfies()].filter(x => keep.has(x.date))); } catch { }
+      addActivity(`<strong>${esc(findEmployee(session.empId)?.name)}</strong> checked ${kind === 'in' ? 'in' : 'out'} at ${hm} (selfie)${kind === 'in' && r.lateApproval?.status === 'pending' ? ' â€“ LATE, awaiting HR approval' : ''}`, 'green');
+      closeModal('perfModal'); showToast(kind === 'in' ? (r.lateApproval?.status === 'pending' ? 'Checked in at ' + hm + ' â€“ marked LATE, sent to HR for approval' : 'Checked in at ' + hm) : 'Checked out at ' + hm, 'success'); updateLateBadge(); refreshCurrentPage();
+      if (!isHR()) attendanceDonePopup(kind, hm, photo, r.lateApproval?.status === 'pending');
+    }
+    function renderMyAtt() {
+      const iso = localISO(), all = getAttendance().filter(a => a.empId === session?.empId).sort((a, b) => b.date.localeCompare(a.date)), t = all.find(a => a.date === iso);
+      const inDone = /Selfie/.test(t?.source || '') && t.inTime, outDone = inDone && t.outTime;
+      const off = dayOffInfo(iso);
+      return `
+        <div class="card"><div class="card-header"><h2>Today â€“ ${formatDate(iso)}</h2></div>
+          <div class="card-body" style="padding:1.5rem;text-align:center">
+            <div style="font-size:2rem;font-weight:700" id="liveClock">${new Date().toTimeString().slice(0, 5)}</div>
+            <div class="dept-tag" style="margin:.4rem 0 1rem">${off.off ? 'Holiday / weekly off today' : inDone ? `Checked in ${t.inTime}${outDone ? ' Â· Checked out ' + t.outTime : ''}` : 'Not checked in yet'}</div>
+            <div class="btn-group" style="justify-content:center"><button class="btn btn-primary" style="padding:.7rem 1.4rem;font-size:.9rem" ${off.off || inDone ? 'disabled' : ''} onclick="openSelfie('in')">Check In</button>
+            <button class="btn btn-edit" style="padding:.7rem 1.4rem;font-size:.9rem" ${off.off || !inDone ? 'disabled' : ''} onclick="openSelfie('out')">${outDone ? 'Update Check Out' : 'Check Out'}</button></div>
+            <p class="dept-tag" style="margin-top:1rem">A selfie and your location are recorded with each check-in/out. ${(() => { const o = officeCfg(); return `Office opens ${to12h(o.open)} Â· grace ${o.grace} min (until ${to12h(minToHM(o.openMin + o.grace))}). Later check-ins are marked <strong>Late</strong> and sent to HR for approval.`; })()}</p>
+          </div></div>
+        <div class="card" style="margin-top:1.25rem"><div class="card-header"><h2>My Recent Attendance</h2></div><div class="card-body table-wrap">
+          ${all.length ? `<table><thead><tr><th>Date</th><th>Status</th><th>In</th><th>Out</th><th>Source</th><th>Late Approval</th></tr></thead><tbody>${all.slice(0, 31).map(a => `<tr><td>${formatDate(a.date)}</td><td>${attBadge(a.status)}</td><td>${a.inTime || 'â€”'}</td><td>${a.outTime || 'â€”'}</td><td class="dept-tag">${esc(a.source || '')}</td><td>${lateBadge(a)}</td></tr>`).join('')}</tbody></table>` : '<div class="empty-state">No attendance yet</div>'}</div></div>`;
+    }
+    // HR: office geofence + recent selfie log
+    function useMyLocation() {
+      navigator.geolocation?.getCurrentPosition(p => { geoLat.value = p.coords.latitude.toFixed(5); geoLng.value = p.coords.longitude.toFixed(5); showToast('Location filled â€“ click Save', 'success'); }, () => showToast('Location blocked in browser', 'error'));
+    }
+    function saveGeo() {
+      const lat = parseFloat(geoLat.value), lng = parseFloat(geoLng.value), radius = parseInt(geoRad.value, 10);
+      if (geoLat.value === '' && geoLng.value === '') { localStorage.removeItem(STORAGE_KEYS.geo); showToast('Geofence cleared â€“ check-in allowed from anywhere', 'success'); refreshCurrentPage(); return; }
+      if (isNaN(lat) || isNaN(lng) || !(radius > 0)) { showToast('Enter latitude, longitude and radius', 'error'); return; }
+      save(STORAGE_KEYS.geo, { lat, lng, radius }); showToast('Office location saved', 'success'); refreshCurrentPage();
+    }
+
+    // ========== FACE MATCH (selfie vs registered photo) â€“ needs /faceapi/face-api.js and /faceapi/model/* on the server ==========
+    const FACE_FLAG = ['mismatch', 'noface', 'multi'];
+    const FACE_LABEL = { match: 'Match', mismatch: 'Mismatch', noface: 'No face seen', multi: 'More than one face', noref: 'No registered face', unchecked: 'Not checked' };
+    const getFaceCfg = () => ({ mode: 'off', threshold: 0.5, ...(load(STORAGE_KEYS.faceCfg) || {}) });
+    function faceBadge(f, blocked) {
+      if (!f) return '<span class="dept-tag">â€”</span>';
+      const cls = f.state === 'match' ? 'approved' : FACE_FLAG.includes(f.state) ? 'rejected' : 'pending';
+      return `<span class="badge ${cls}">${FACE_LABEL[f.state] || f.state}${f.d != null ? ' (' + f.d + ')' : ''}</span>${blocked ? '<div class="dept-tag">Check-in refused</div>' : ''}`;
+    }
+    let faceLib = null, FD = {};
+    function faceLoad() {
+      if (faceLib) return faceLib;
+      faceLib = (async () => {
+        if (!window.faceapi) await new Promise((ok, no) => { const sc = document.createElement('script'); sc.src = '/faceapi/face-api.js'; sc.onload = ok; sc.onerror = () => no(new Error('/faceapi/face-api.js not found on the server')); document.head.appendChild(sc); });
+        const n = faceapi.nets, M = '/faceapi/model', miss = [], tryNet = async (net, name) => { try { await net.loadFromUri(M); return true; } catch { miss.push(name); return false; } };
+        FD.det = (await tryNet(n.ssdMobilenetv1, 'ssd_mobilenetv1_model')) ? 'ssd' : ((await tryNet(n.tinyFaceDetector, 'tiny_face_detector_model')) ? 'tiny' : '');
+        FD.tinyLm = !(await tryNet(n.faceLandmark68Net, 'face_landmark_68_model')); if (FD.tinyLm && !(await tryNet(n.faceLandmark68TinyNet, 'face_landmark_68_tiny_model'))) FD.lm = false;
+        const rec = await tryNet(n.faceRecognitionNet, 'face_recognition_model');
+        if (!FD.det || FD.lm === false || !rec) throw new Error('Missing face model files in /faceapi/model: ' + miss.join(', '));
+        return true;
+      })().catch(e => { faceLib = null; throw e; });
+      return faceLib;
+    }
+    // descriptor of the largest face in an <img>/<video>/<canvas>; null when no face is found
+    async function faceDesc(src) {
+      const opt = FD.det === 'ssd' ? new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 }) : new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.5 });
+      const all = await faceapi.detectAllFaces(src, opt).withFaceLandmarks(FD.tinyLm).withFaceDescriptors();
+      if (!all.length) return null;
+      all.sort((a, b) => b.detection.box.area - a.detection.box.area);
+      return { desc: Array.from(all[0].descriptor), n: all.length };
+    }
+    const faceImg = url => new Promise((ok, no) => { const im = new Image(); im.onload = () => ok(im); im.onerror = () => no(new Error('photo could not be read')); im.src = url; });
+    // reference descriptor of the registered photo (cached until the photo changes)
+    async function faceRef(empId) {
+      const photo = (getPhotos(), photoMap)[empId]; if (!photo) return null;
+      const sig = photo.length + ':' + photo.slice(-40), refs = load(STORAGE_KEYS.faceRef) || {};
+      if (refs[empId] && refs[empId].sig === sig) return refs[empId].d.length ? refs[empId].d : 'noface';
+      await faceLoad(); const r = await faceDesc(await faceImg(photo));
+      refs[empId] = { sig, d: r ? r.desc.map(x => +x.toFixed(4)) : [] }; save(STORAGE_KEYS.faceRef, refs);
+      return r ? refs[empId].d : 'noface';
+    }
+    async function faceCheck(empId, v, thr) {
+      await faceLoad(); const ref = await faceRef(empId);
+      if (!ref || ref === 'noface') return { state: 'noref' };
+      const live = await faceDesc(v); if (!live) return { state: 'noface' };
+      const d = +faceapi.euclideanDistance(ref, live.desc).toFixed(2);
+      return live.n > 1 ? { state: 'multi', d } : { state: d <= thr ? 'match' : 'mismatch', d };
+    }
+    async function selfieSubmit(kind) {
+      const cfg = getFaceCfg(), v = document.getElementById('selfieVid');
+      if (cfg.mode === 'off' || isHR() || !selfieStream || !v || !v.videoWidth || !selfieGeo) return selfieSubmitBase(kind, null);
+      const btn = document.querySelector('#perfModal .btn-primary'), old = btn && btn.textContent; if (btn) { btn.disabled = true; btn.textContent = 'Checking faceâ€¦'; }
+      let face; try { face = await faceCheck(session.empId, v, +cfg.threshold || 0.5); } catch (e) { console.warn('Face check unavailable:', e.message); face = { state: 'unchecked' }; }
+      if (btn) { btn.disabled = false; btn.textContent = old; }
+      if (cfg.mode === 'block' && (FACE_FLAG.includes(face.state))) {
+        const c = document.createElement('canvas'), k = 240 / v.videoWidth; c.width = 240; c.height = Math.round(v.videoHeight * k); c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+        const t = localISO(), keep = new Set([...Array(3)].map((_, i) => localISO(new Date(Date.now() - i * 864e5))));
+        try { save(STORAGE_KEYS.selfies, [{ id: uid(), empId: session.empId, date: t, kind, time: new Date().toTimeString().slice(0, 5), photo: c.toDataURL('image/jpeg', .5), face, blocked: true }, ...getSelfies()].filter(x => keep.has(x.date))); } catch { }
+        addActivity(`Check-${kind === 'in' ? 'in' : 'out'} refused for <strong>${esc(findEmployee(session.empId)?.name)}</strong> â€“ face ${FACE_LABEL[face.state].toLowerCase()}`, 'red');
+        showToast(face.state === 'multi' ? 'Only one person should be in the photo' : face.state === 'noface' ? 'Face not clearly visible. Look straight at the camera in good light' : 'Your face does not match the registered photo. Try again; if it keeps failing, contact HR', 'error'); return;
+      }
+      selfieSubmitBase(kind, face);
+    }
+    function renderFaceReview() {
+      if (!isHR()) return '';
+      const list = getAttendance().filter(a => a.faceFlag && a.faceFlag.status === 'pending').sort((a, b) => b.date.localeCompare(a.date));
+      if (!list.length) return '';
+      return `<div class="card" style="margin-bottom:1.25rem"><div class="card-header"><h2>Face check â€“ needs your review (${list.length})</h2></div><div class="card-body table-wrap"><table><thead><tr><th>Employee</th><th>Date</th><th>Result</th><th>Selfie</th><th>Decision</th></tr></thead><tbody>${list.map(a => { const sf = getSelfies().find(x => x.id === a.faceFlag.sid); return `<tr><td>${empCell(findEmployee(a.empId))}</td><td class="dept-tag">${formatDate(a.date)} Â· ${a.faceFlag.kind === 'in' ? 'In' : 'Out'}</td><td>${faceBadge({ state: a.faceFlag.state, d: a.faceFlag.d })}</td><td>${sf ? `<img src="${sf.photo}" title="Click to compare" onclick="selfiePreview('${sf.id}')" style="height:44px;border-radius:6px;cursor:zoom-in" />` : '<span class="dept-tag">Photo expired</span>'}</td><td><div class="btn-group" style="flex-wrap:nowrap"><button class="btn btn-approve" onclick="faceDecide('${a.id}','same')">Same person</button><button class="btn btn-reject" onclick="faceDecide('${a.id}','other')">Not the employee</button></div></td></tr>`; }).join('')}</tbody></table></div></div>`;
+    }
+    function faceDecide(id, how) {
+      if (!isHR()) return; const l = getAttendance(), a = l.find(x => x.id === id); if (!a || !a.faceFlag) return;
+      if (how === 'same') a.faceFlag.status = 'accepted';
+      else { a.faceFlag.status = 'rejected'; a.status = 'absent'; a.inTime = ''; a.outTime = ''; delete a.lateApproval; }
+      a.faceFlag.by = (session && session.user) || 'admin'; setAttendance(l);
+      addActivity(`Face check ${how === 'same' ? 'accepted' : 'rejected, marked absent'} for <strong>${esc(findEmployee(a.empId)?.name)}</strong> (${formatDate(a.date)})`, how === 'same' ? 'green' : 'red');
+      showToast(how === 'same' ? 'Accepted' : 'Attendance rejected and marked absent', 'success'); updateLateBadge(); refreshCurrentPage();
+    }
+    function saveFaceCfg() {
+      const t = parseFloat(document.getElementById('faceThr').value); if (isNaN(t) || t < 0.3 || t > 0.7) { showToast('Strictness must be between 0.30 and 0.70', 'error'); return; }
+      save(STORAGE_KEYS.faceCfg, { mode: document.getElementById('faceMode').value, threshold: t }); showToast('Face matching settings saved', 'success'); refreshCurrentPage();
+    }
+    async function faceTest() {
+      const o = document.getElementById('faceOut'); o.innerHTML = 'Loading face library and modelsâ€¦';
+      try { await faceLoad(); o.innerHTML = '<span style="color:#16a34a;font-weight:600">Face system is working</span> (detector: ' + (FD.det === 'ssd' ? 'SSD' : 'Tiny') + ').'; } catch (e) { o.innerHTML = '<span style="color:#dc2626;font-weight:600">Not ready:</span> ' + esc(e.message); }
+    }
+    async function faceEnrollAll() {
+      const o = document.getElementById('faceOut'); o.innerHTML = 'Reading registered photosâ€¦'; let ok = 0; const bad = [];
+      try { await faceLoad(); } catch (e) { o.innerHTML = '<span style="color:#dc2626">Not ready:</span> ' + esc(e.message); return; }
+      for (const e of getEmployees().filter(x => x.status !== 'inactive')) { try { const r = await faceRef(e.id); if (r && r !== 'noface') ok++; else bad.push(e.name + (r === null ? ' (no photo)' : ' (no clear face)')); } catch { bad.push(e.name + ' (error)'); } }
+      o.innerHTML = `<strong>${ok}</strong> photo(s) ready.${bad.length ? ' <span style="color:#dc2626">Replace these photos with a clear, front-facing one:</span> ' + bad.map(esc).join(', ') : ''}`;
+    }
+    function renderFaceCard() {
+      const c = getFaceCfg(), inp = 'padding:.5rem .7rem;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:.85rem';
+      return `<div class="card"><div class="card-header"><h2>Face Matching (selfie vs registered photo)</h2></div><div class="card-body" style="padding:1.25rem">
+        <p class="dept-tag" style="margin-bottom:1rem;line-height:1.6"><strong>Off</strong>: HR compares by eye. <strong>Flag</strong>: attendance is recorded and a mismatch is sent to HR for review. <strong>Block</strong>: a mismatch or an unclear face is refused. Lower strictness number = stricter (0.50 is a good start). If the face system is not available, check-in still works and is marked "Not checked".</p>
+        <div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin-bottom:.9rem"><select id="faceMode" style="${inp}"><option value="off" ${c.mode === 'off' ? 'selected' : ''}>Off</option><option value="warn" ${c.mode === 'warn' ? 'selected' : ''}>Flag mismatches for HR</option><option value="block" ${c.mode === 'block' ? 'selected' : ''}>Block mismatches</option></select><span class="dept-tag">Strictness</span><input id="faceThr" type="number" step="0.01" min="0.3" max="0.7" value="${c.threshold}" style="${inp};width:90px" /><button class="btn btn-primary" style="padding:.55rem 1rem" onclick="saveFaceCfg()">Save</button><button class="btn btn-secondary" onclick="faceTest()">Test face system</button><button class="btn btn-secondary" onclick="faceEnrollAll()">Check registered photos</button></div>
+        <div id="faceOut" class="dept-tag" style="line-height:1.7"></div></div></div>`;
+    }
+
+    // ========== SELFIE PREVIEW (admin) ==========
+    // Admin only: enlarge a check-in selfie next to the registered photo to verify the employee
+    function selfiePreview(id) {
+      if (!isHR()) return;
+      const x = getSelfies().find(s => s.id === id); if (!x) return;
+      const e = findEmployee(x.empId) || {}, reg = (getPhotos(), photoMap)[x.empId], a = getAttendance().find(r => r.empId === x.empId && r.date === x.date);
+      document.getElementById('selfiePrev')?.remove();
+      const box = (cap, img) => `<div style="text-align:center"><div style="font-size:.75rem;font-weight:600;color:#64748b;margin-bottom:.35rem">${cap}</div>${img ? `<img src="${img}" style="width:100%;max-width:300px;max-height:60vh;object-fit:contain;border-radius:10px;background:#0f172a" />` : '<div style="width:220px;height:200px;border-radius:10px;background:#e2e8f0;display:flex;align-items:center;justify-content:center;color:#64748b;font-size:.85rem;padding:1rem">No registered photo. Add one in Employees.</div>'}</div>`;
+      const d = document.createElement('div'); d.id = 'selfiePrev';
+      d.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(15,23,42,.8);display:flex;align-items:center;justify-content:center;padding:1rem;overflow:auto';
+      d.onclick = ev => { if (ev.target === d) d.remove(); };
+      d.innerHTML = `<div style="background:#fff;border-radius:14px;padding:1.1rem 1.25rem;max-width:720px;width:100%;position:relative"><button onclick="document.getElementById('selfiePrev').remove()" aria-label="Close" style="position:absolute;right:.7rem;top:.5rem;border:0;background:none;font-size:1.3rem;cursor:pointer">&#10005;</button>
+        <div style="font-weight:700;font-size:1.05rem;margin-bottom:.15rem">${esc(e.name || 'â€”')} <span class="dept-tag">${esc(e.empCode || '')}</span></div>
+        <div class="dept-tag" style="margin-bottom:.8rem;line-height:1.6">${x.kind === 'in' ? 'Check In' : 'Check Out'} Â· ${formatDate(x.date)} Â· ${x.time} Â· ${x.dist != null ? 'Distance from office ' + x.dist + ' m' : 'No geofence'}${a && a.source ? ' Â· ' + esc(a.source) : ''}</div>
+        <div style="margin-bottom:.7rem">${faceBadge(x.face, x.blocked)}</div>
+        <div style="display:flex;gap:1rem;flex-wrap:wrap;justify-content:center">${box('Check-in selfie', x.photo)}${box('Registered photo', reg)}</div></div>`;
+      document.body.appendChild(d);
+    }
+    document.addEventListener('keydown', ev => { if (ev.key === 'Escape') document.getElementById('selfiePrev')?.remove(); });
+    function renderSelfieCard() {
+      const g = getGeo(), inp = 'padding:.5rem .7rem;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:.85rem', rows = getSelfies().slice(0, 20);
+      return `<div class="card"><div class="card-header"><h2>Self Attendance (Selfie + Location)</h2></div><div class="card-body" style="padding:1.25rem">
+        <p class="dept-tag" style="margin-bottom:1rem;line-height:1.6">Employees check in/out from â€œMy Attendanceâ€. Set the office location and allowed radius so check-in works only at the office. Leave blank to allow from anywhere.</p>
+        <div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin-bottom:1rem">
+          <input id="geoLat" placeholder="Latitude" value="${g.lat ?? ''}" style="${inp};width:130px" /><input id="geoLng" placeholder="Longitude" value="${g.lng ?? ''}" style="${inp};width:130px" /><input id="geoRad" type="number" placeholder="Radius (m)" value="${g.radius ?? 200}" style="${inp};width:120px" />
+          <button class="btn btn-secondary" onclick="useMyLocation()">Use my current location</button><button class="btn btn-primary" style="padding:.55rem 1rem" onclick="saveGeo()">Save</button></div>
+        <div class="table-wrap">${rows.length ? `<table><thead><tr><th>Selfie</th><th>Employee</th><th>Date</th><th>Type</th><th>Time</th><th>Distance</th><th>Face</th></tr></thead><tbody>${rows.map(x => `<tr><td><img src="${x.photo}" title="Click to preview" onclick="selfiePreview('${x.id}')" style="height:48px;border-radius:6px;cursor:zoom-in" /></td><td>${esc(findEmployee(x.empId)?.name || 'â€”')}</td><td class="dept-tag">${formatDate(x.date)}</td><td>${x.kind === 'in' ? 'Check In' : 'Check Out'}</td><td>${x.time}</td><td class="dept-tag">${x.dist != null ? x.dist + ' m' : 'No geofence'}</td><td>${faceBadge(x.face, x.blocked)}</td></tr>`).join('')}</tbody></table>` : '<div class="empty-state">No selfie check-ins yet (photos are kept for 3 days)</div>'}</div></div></div>`;
+    }
+
+
+    // ========== LATE ATTENDANCE APPROVAL (grace period + HR admin decision) ==========
+    function lateWarn(kind) {
+      if (kind !== 'in') return '';
+      const o = officeCfg(), n = new Date(), m = n.getHours() * 60 + n.getMinutes();
+      if (m <= o.openMin + o.grace) return '';
+      return `<div style="margin-top:.7rem;padding:.7rem .9rem;background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;font-size:.8rem;line-height:1.6;color:#92400e">You are checking in after the grace time (${to12h(minToHM(o.openMin + o.grace))}). This will be marked <strong>Late</strong> and sent to HR for approval.</div>
+        <div class="form-group" style="margin-top:.6rem"><label>Reason for late arrival</label><textarea id="selfieReason" rows="2" placeholder="e.g. Traffic, bus delay, client meeting"></textarea></div>`;
+    }
+    function lateBadge(a) {
+      const l = a.lateApproval; if (!l) return '<span class="dept-tag">â€”</span>';
+      const cls = { pending: 'pending', accepted: 'probation', excused: 'active', rejected: 'rejected' }[l.status], txt = { pending: 'Pending HR', accepted: 'Accepted as Late', excused: 'Excused', rejected: 'Rejected' }[l.status];
+      return `<span class="badge ${cls}">${txt}</span>${l.remark ? `<div class="dept-tag">${esc(l.remark)}</div>` : ''}`;
+    }
+    const pendingLate = () => getAttendance().filter(a => a.lateApproval?.status === 'pending').sort((x, y) => y.date.localeCompare(x.date));
+    function updateLateBadge() {
+      const nav = document.querySelector('.nav-item[data-page="attendance"]'); if (!nav) return;
+      let b = document.getElementById('lateBadge');
+      if (!b) { b = document.createElement('span'); b.className = 'badge'; b.id = 'lateBadge'; nav.appendChild(b); }
+      const n = isHR() ? pendingLate().length : 0; b.textContent = n; b.style.display = n ? 'inline-flex' : 'none';
+    }
+    function renderLateApprovals() {
+      const list = pendingLate(); if (!list.length || !isHR()) return '';
+      const o = officeCfg(), sf = getSelfies();
+      return `<div class="card" style="border-left:4px solid #f59e0b"><div class="card-header"><h2>Late Attendance â€“ Awaiting Approval (${list.length})</h2></div><div class="card-body table-wrap"><table><thead><tr><th>Employee</th><th>Date</th><th>Check-in</th><th>Late by</th><th>Reason</th><th>Selfie</th><th>Decision</th></tr></thead><tbody>${list.map(a => {
+        const e = findEmployee(a.empId), by = hmToMin(a.inTime) - o.openMin, ph = sf.find(x => x.empId === a.empId && x.date === a.date && x.kind === 'in');
+        return `<tr><td>${empCell(e)}</td><td class="dept-tag">${formatDate(a.date)}</td><td>${to12h(a.inTime)}</td><td class="dept-tag">${fmtDur(by)} (grace ${o.grace}m)</td><td class="dept-tag">${esc(a.lateApproval.reason) || 'â€”'}</td><td>${ph ? `<img src="${ph.photo}" title="Click to preview" onclick="selfiePreview('${ph.id}')" style="height:44px;border-radius:6px;cursor:zoom-in" />` : 'â€”'}</td>
+          <td><div class="btn-group" style="flex-wrap:nowrap"><button class="btn btn-edit" onclick="lateDecide('${a.id}','accept')">Accept as Late</button><button class="btn btn-approve" onclick="lateDecide('${a.id}','excuse')">Excuse</button><button class="btn btn-delete" onclick="lateDecide('${a.id}','reject')">Reject</button></div></td></tr>`; }).join('')}</tbody></table></div></div>`;
+    }
+    function lateDecide(id, act) {
+      if (!isHR()) return;
+      const list = getAttendance(), r = list.find(a => a.id === id); if (!r?.lateApproval) return;
+      const q = { accept: 'Remark (optional). Attendance stays marked Late:', excuse: 'Remark (optional). Attendance will be marked Present:', reject: 'Reason for rejection. Attendance will be marked Absent:' }[act];
+      const remark = prompt(q, ''); if (remark === null) return;
+      r.lateApproval = { ...r.lateApproval, status: { accept: 'accepted', excuse: 'excused', reject: 'rejected' }[act], remark: remark.trim(), by: session?.user || 'admin', decidedAt: new Date().toISOString() };
+      r.status = { accept: 'late', excuse: 'present', reject: 'absent' }[act];
+      setAttendance(list);
+      addActivity(`Late attendance of <strong>${esc(findEmployee(r.empId)?.name)}</strong> (${formatDate(r.date)}) ${{ accept: 'accepted as Late', excuse: 'excused', reject: 'rejected' }[act]}`, act === 'reject' ? 'red' : 'green');
+      showToast('Decision saved', 'success'); updateLateBadge(); refreshCurrentPage();
+    }
+
+
+    // ========== "ATTENDANCE RECORDED" CONFIRMATION (employee login only) ==========
+    function attendanceDonePopup(kind, hm, selfie, late) {
+      const e = findEmployee(session?.empId); if (!e) return;
+      const photo = (getPhotos(), photoMap)[e.id] || selfie;
+      document.getElementById('attDone')?.remove();
+      const d = document.createElement('div'); d.id = 'attDone';
+      d.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:10000;display:flex;align-items:center;justify-content:center;padding:1rem';
+      d.innerHTML = `<div style="background:#fff;border-radius:16px;padding:1.6rem 1.4rem 1.3rem;width:100%;max-width:360px;text-align:center;box-shadow:0 20px 40px rgba(0,0,0,.35)">
+        <div style="font-size:1.35rem;font-weight:700;color:#0f172a">${esc(e.name)}</div>
+        <img src="${photo}" alt="" style="width:130px;height:130px;border-radius:50%;object-fit:cover;border:4px solid #10b981;margin:1rem auto;display:block" />
+        <div style="font-size:1.05rem;font-weight:600;color:#059669">âœ” Your Attendance is Successfully Recorded</div>
+        <div style="margin-top:.5rem;color:#64748b;font-size:.85rem">${kind === 'in' ? 'Checked in' : 'Checked out'} at ${to12h(hm)} Â· ${formatDate(localISO())}</div>
+        ${late ? '<div style="margin-top:.7rem;padding:.5rem .7rem;background:#fef3c7;border-radius:8px;color:#92400e;font-size:.8rem">Marked Late â€“ sent to HR for approval</div>' : ''}
+        <button class="btn btn-primary" style="margin-top:1.1rem;padding:.6rem 2rem" onclick="document.getElementById('attDone').remove()">OK</button></div>`;
+      d.addEventListener('click', ev => { if (ev.target === d) d.remove(); });
+      document.body.appendChild(d); setTimeout(() => d.remove(), 10000);
+    }
+
+
+    // ========== AUTO SIGN-OUT AFTER 5 MINUTES OF INACTIVITY ==========
+    (function () {
+      const LIMIT = 5 * 60 * 1000, WARN = 30 * 1000, KEY = 'hrms_last_active';
+      let last = Date.now(), wrote = 0;
+      try { last = +sessionStorage.getItem(KEY) || last; } catch (e) {}
+      const mark = () => {
+        const n = Date.now(); last = n; document.getElementById('idleWarn')?.remove();
+        if (n - wrote > 3000) { wrote = n; try { sessionStorage.setItem(KEY, String(n)); } catch (e) {} }
+      };
+      ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'wheel', 'click'].forEach(ev => window.addEventListener(ev, mark, { passive: true, capture: true }));
+      function check() {
+        if (!session) return;
+        let l = last; try { l = Math.max(l, +sessionStorage.getItem(KEY) || 0); } catch (e) {}
+        const idle = Date.now() - l;
+        if (idle >= LIMIT) { logout('idle'); return; }
+        if (idle >= LIMIT - WARN) {
+          let w = document.getElementById('idleWarn');
+          if (!w) {
+            w = document.createElement('div'); w.id = 'idleWarn';
+            w.style.cssText = 'position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:10001;background:#0f172a;color:#fff;padding:.8rem 1.1rem;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.4);display:flex;gap:.9rem;align-items:center;font-size:.85rem;max-width:92vw';
+            w.innerHTML = '<span>Signing out in <b id="idleSec"></b>s due to inactivity</span><button class="btn btn-primary" style="padding:.4rem .9rem" onclick="void 0">Stay signed in</button>';
+            document.body.appendChild(w);
+          }
+          document.getElementById('idleSec').textContent = Math.max(0, Math.ceil((LIMIT - idle) / 1000));
+        }
+      }
+      setInterval(check, 1000);
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
+    })();
+
+
+    // ========== ATTENDANCE DASHBOARD (admin panel only) ==========
+    let dashAttDate = null, dashAttFilter = 'exceptions';
+    const ATT_COL = { present: '#059669', late: '#d97706', 'half-day': '#2563eb', absent: '#dc2626', leave: '#0891b2', od: '#0d9488', holiday: '#64748b' };
+    const attBadge = st => `<span class="badge ${{ present: 'active', late: 'on-leave', 'half-day': 'probation', absent: 'rejected', leave: 'approved', od: 'od', holiday: 'inactive' }[st] || 'pending'}">${(ATT_STATUSES.find(a => a[0] === st) || [, st])[1]}</span>`;
+    function setDashAtt(k, v) { if (k === 'date') dashAttDate = v || localISO(); else dashAttFilter = v; refreshCurrentPage(); }
+    function attDayRows(iso) {
+      const by = {}; getAttendance().filter(a => a.date === iso).forEach(a => by[a.empId] = a);
+      return attEmployeesFor(iso).map(e => ({ e, r: by[e.id] || null }));
+    }
+    function renderAttDash() {
+      if (!isHR()) return '';
+      const date = dashAttDate || localISO(), rows = attDayRows(date), N = rows.length, cnt = st => rows.filter(x => x.r?.status === st).length;
+      const marked = rows.filter(x => x.r).length, unmarked = N - marked, pend = pendingLate().length;
+      const tiles = [['marked', 'Marked', `${marked} of ${N}`, '#0f172a'], ['present', 'Present', cnt('present'), ATT_COL.present], ['late', 'Late', cnt('late'), ATT_COL.late], ['half-day', 'Half Day', cnt('half-day'), ATT_COL['half-day']], ['od', 'On Duty', cnt('od'), ATT_COL.od],
+        ['absent', 'Absent', cnt('absent'), ATT_COL.absent], ['leave', 'Leave', cnt('leave'), ATT_COL.leave], ['holiday', 'Holiday', cnt('holiday'), ATT_COL.holiday], ['unmarked', 'Not Marked', unmarked, '#94a3b8']];
+      const f = dashAttFilter, show = rows.filter(x => f === 'all' ? true : f === 'exceptions' ? (!x.r || ['late', 'half-day', 'absent'].includes(x.r.status)) : f === 'marked' ? !!x.r : f === 'unmarked' ? !x.r : x.r?.status === f);
+      const bar = N ? ['present', 'late', 'half-day', 'absent', 'leave', 'od', 'holiday'].map(st => cnt(st) ? `<div title="${st}: ${cnt(st)}" style="width:${cnt(st) / N * 100}%;background:${ATT_COL[st]}"></div>` : '').join('') : '';
+      const days = [...Array(7)].map((_, i) => localISO(new Date(new Date(date + 'T00:00:00').getTime() - (6 - i) * 864e5)));
+      const trend = days.map(d => { const rr = attDayRows(d), n = rr.length || 1, c = st => rr.filter(x => x.r?.status === st).length, att = c('present') + c('late');
+        return `<div style="flex:1;min-width:46px;text-align:center"><div style="height:90px;display:flex;flex-direction:column-reverse;border-radius:6px;overflow:hidden;background:#f1f5f9">${['present', 'late', 'half-day', 'absent', 'leave', 'od'].map(st => c(st) ? `<div title="${st}: ${c(st)}" style="height:${c(st) / n * 100}%;background:${ATT_COL[st]}"></div>` : '').join('')}</div>
+          <div style="font-size:.7rem;font-weight:600;margin-top:.3rem${d === date ? ';color:var(--primary)' : ''}">${new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'short' })}</div><div class="dept-tag" style="font-size:.68rem">${att}/${rr.length}</div></div>`; }).join('');
+      const filt = [['exceptions', 'Needs attention'], ['all', 'Everyone']];
+      return `
+        <div class="card" style="margin-bottom:1.25rem">
+          <div class="card-header" style="flex-wrap:wrap;gap:.6rem"><div><h2>Attendance Overview</h2><div class="dept-tag">${formatDate(date)} Â· ${new Date(date + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'long' })}${dayOffInfo(date).off ? ' Â· Holiday / weekly off' : ''}</div></div>
+            <div class="btn-group"><input type="date" value="${date}" onchange="setDashAtt('date',this.value)" style="padding:.45rem .6rem;border:1px solid var(--border);border-radius:8px" /><button class="btn btn-secondary" onclick="setDashAtt('date','')">Today</button><button class="btn btn-primary" onclick="navigate('attendance')">Open Attendance</button></div></div>
+          <div style="padding:1.1rem 1.25rem">
+            ${pend ? `<div style="margin-bottom:1rem;padding:.65rem .9rem;background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;color:#92400e;font-size:.85rem;display:flex;gap:.6rem;align-items:center;flex-wrap:wrap">âš  ${pend} late attendance request${pend > 1 ? 's' : ''} awaiting your approval <button class="btn btn-edit" onclick="navigate('attendance')">Review</button></div>` : ''}
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:.75rem">${tiles.map(([k, l, v, c]) => `<div onclick="setDashAtt('f','${k}')" style="cursor:pointer;border:1px solid ${f === k ? c : 'var(--border)'};border-left:4px solid ${c};border-radius:10px;padding:.7rem .85rem;background:${f === k ? '#f8fafc' : '#fff'}"><div class="dept-tag" style="font-size:.74rem">${l}</div><div style="font-size:1.45rem;font-weight:700;color:${c}">${v}</div></div>`).join('')}</div>
+            <div style="display:flex;height:12px;border-radius:99px;overflow:hidden;background:#e2e8f0;margin:1rem 0 .3rem">${bar}</div>
+            <div class="dept-tag" style="font-size:.72rem">Attendance mix for the day${N ? ` Â· ${Math.round((cnt('present') + cnt('late') + cnt('half-day') + cnt('od')) / N * 100)}% attended` : ''}</div>
+            <div style="display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:1.25rem;margin-top:1.1rem" class="att-dash-grid">
+              <div><div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-bottom:.5rem"><strong style="font-size:.9rem">${f === 'exceptions' ? 'Needs attention' : (tiles.find(t => t[0] === f)?.[1] || 'Everyone')} (${show.length})</strong>${f !== 'exceptions' ? '<button class="btn btn-secondary" style="padding:.25rem .6rem;font-size:.72rem" onclick="setDashAtt(\'f\',\'exceptions\')">Needs attention</button>' : ''}${f !== 'all' ? '<button class="btn btn-secondary" style="padding:.25rem .6rem;font-size:.72rem" onclick="setDashAtt(\'f\',\'all\')">Show everyone</button>' : ''}</div>
+                <div class="table-wrap" style="max-height:340px">${show.length ? `<table><thead><tr><th>Employee</th><th>Status</th><th>In</th><th>Out</th><th>Approval</th></tr></thead><tbody>${show.map(({ e, r }) => `<tr><td>${empCell(e)}</td><td>${r ? `${attBadge(r.status)}` : '<span class="badge pending">Not marked</span>'}</td><td>${r?.inTime ? to12h(r.inTime) : 'â€”'}</td><td>${r?.outTime ? to12h(r.outTime) : 'â€”'}</td><td>${r ? lateBadge(r) : 'â€”'}</td></tr>`).join('')}</tbody></table>` : '<div class="empty-state">Nothing to show for this selection</div>'}</div></div>
+              <div><strong style="font-size:.9rem">Last 7 days</strong><div style="display:flex;gap:.4rem;margin-top:.6rem;overflow-x:auto">${trend}</div>
+                <div style="display:flex;gap:.7rem;flex-wrap:wrap;margin-top:.7rem;font-size:.7rem">${['present', 'late', 'half-day', 'absent', 'leave', 'od'].map(st => `<span><i style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${ATT_COL[st]};margin-right:4px"></i>${(ATT_STATUSES.find(a => a[0] === st) || [, st])[1]}</span>`).join('')}</div></div>
+            </div>
+          </div>
+        </div>`;
+    }
+    function renderDashboard() { return renderAttDash() + renderDashboardBase(); }
+
+
+    // ========== SERVICE REGISTER (joining / leaving / rejoining + service calculation) ==========
+    const EXIT_TYPES = ['Resignation', 'Termination', 'Retirement', 'End of contract', 'Absconding', 'Relieved / Other'];
+    let svcFilter = 'all', svcQ = '';
+    const getReg = () => load(STORAGE_KEYS.service) || {};
+    const addDays = (iso, n) => { const d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() + n); return localISO(d); };
+    function ymd(a, b) {   // calendar difference a -> b (b exclusive)
+      const A = new Date(a + 'T00:00:00'), B = new Date(b + 'T00:00:00'); let y = B.getFullYear() - A.getFullYear(), m = B.getMonth() - A.getMonth(), d = B.getDate() - A.getDate();
+      if (d < 0) { m--; d += new Date(B.getFullYear(), B.getMonth(), 0).getDate(); } if (m < 0) { y--; m += 12; } return { y: Math.max(0, y), m, d };
+    }
+    const addS = (s, t) => { let y = s.y + t.y, m = s.m + t.m, d = s.d + t.d; m += Math.floor(d / 30); d %= 30; y += Math.floor(m / 12); m %= 12; return { y, m, d }; };
+    const fmtS = s => (s.y || s.m || s.d) ? [s.y && s.y + 'y', s.m && s.m + 'm', s.d && s.d + 'd'].filter(Boolean).join(' ') : '0d';
+    const monthsOf = s => s.y * 12 + s.m + s.d / 30;
+    const stintSvc = (st, asOf) => { const end = st.to || asOf; return !st.from || end < st.from ? { y: 0, m: 0, d: 0 } : ymd(st.from, addDays(end, 1)); };   // joining and last day both counted
+
+    function syncService() {   // keeps the register in step with employee records and resignations
+      const reg = getReg(), before = JSON.stringify(reg), today = localISO();
+      getEmployees().forEach(e => {
+        const from = e.doj || (e.createdAt || '').slice(0, 10) || today;
+        let r = reg[e.id];
+        if (!r) r = reg[e.id] = { stints: [{ id: uid(), from, to: null, role: e.role || '', dept: e.dept || '' }], events: [{ id: uid(), type: 'Joined', date: from, note: e.role ? 'As ' + e.role : '' }] };
+        const last = r.stints[r.stints.length - 1];
+        if (!last.to && e.doj) last.from = e.doj;
+        const res = getResignations().filter(x => x.empId === e.id && x.status === 'accepted' && (x.approvedLWD || x.lastWorkingDate) >= last.from).slice(-1)[0];
+        const lwd = res ? (res.approvedLWD || res.lastWorkingDate) : '';
+        let exit = '';
+        if (e.status === 'inactive' || (e.relievingDate && e.relievingDate <= today)) exit = e.relievingDate || lwd || today;
+        else if (lwd && lwd < today) exit = lwd;
+        if (!last.to && exit) {
+          last.to = exit < last.from ? last.from : exit; last.exitType = res ? 'Resignation' : 'Relieved / Other'; last.reason = res?.reason || '';
+          r.events.push({ id: uid(), type: 'Left organization', date: last.to, note: last.exitType });
+        } else if (last.to && !exit) {
+          const nf = e.doj && e.doj > last.to ? e.doj : today;
+          r.stints.push({ id: uid(), from: nf, to: null, role: e.role || '', dept: e.dept || '' });
+          r.events.push({ id: uid(), type: 'Rejoined', date: nf, note: 'Status set back to active' });
+        }
+      });
+      if (JSON.stringify(reg) !== before) save(STORAGE_KEYS.service, reg);
+      return reg;
+    }
+    function svcOf(e, reg) {
+      const st = reg[e.id].stints, asOf = localISO(); let prev = { y: 0, m: 0, d: 0 }, cur = { y: 0, m: 0, d: 0 };
+      st.forEach(x => { const v = stintSvc(x, asOf); if (x.to) prev = addS(prev, v); else cur = v; });
+      const last = st[st.length - 1];
+      return { r: reg[e.id], st, last, exited: !!last.to, prev, cur, total: addS(prev, cur) };
+    }
+    function svcTimeline(e, r) {
+      const items = r.events.map(x => ({ date: x.date, title: x.type, note: x.note }));
+      getResignations().filter(x => x.empId === e.id).forEach(x => {
+        items.push({ date: x.noticeDate, title: 'Resignation submitted', note: 'Last working date proposed: ' + formatDate(x.lastWorkingDate) + (x.reason ? ' Â· ' + x.reason : '') });
+        if (x.decidedAt) items.push({ date: x.decidedAt.slice(0, 10), title: 'Resignation ' + x.status, note: x.status === 'accepted' ? 'Approved last working date: ' + formatDate(x.approvedLWD || x.lastWorkingDate) + (x.hrRemarks ? ' Â· ' + x.hrRemarks : '') : (x.hrRemarks || '') });
+      });
+      return items.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    }
+    const svcTiles = v => [['Total Service', fmtS(v.total), '#2563eb'], ['Previous Service', fmtS(v.prev), '#7c3aed'], ['Current Service', v.exited ? 'Left' : fmtS(v.cur), v.exited ? '#dc2626' : '#059669'], ['Times Joined', v.st.length, '#d97706']]
+      .map(([l, x, c]) => `<div style="border:1px solid var(--border);border-left:4px solid ${c};border-radius:10px;padding:.7rem .85rem"><div class="dept-tag" style="font-size:.74rem">${l}</div><div style="font-size:1.25rem;font-weight:700;color:${c}">${x}</div></div>`).join('');
+    const stintTable = (v, hr, empId) => `<div class="table-wrap" style="max-height:none"><table><thead><tr><th>#</th><th>Joined</th><th>Left</th><th>Service</th><th>Exit type / Remarks</th>${hr ? '<th></th>' : ''}</tr></thead><tbody>${v.st.map((x, i) => `<tr><td>${i + 1}</td><td>${formatDate(x.from)}${x.role ? `<div class="dept-tag">${esc(x.role)}</div>` : ''}</td><td>${x.to ? formatDate(x.to) : '<span class="badge active">In service</span>'}</td><td><strong>${fmtS(stintSvc(x, localISO()))}</strong></td><td class="dept-tag">${x.to ? esc(x.exitType || '') + (x.reason ? ' Â· ' + esc(x.reason) : '') : 'â€”'}</td>${hr ? `<td><button class="btn btn-edit" onclick="openStintEdit('${empId}','${x.id}')">Edit</button></td>` : ''}</tr>`).join('')}</tbody></table></div>`;
+    const timelineHtml = items => items.length ? `<div style="border-left:2px solid #cbd5e1;margin-left:.4rem;padding-left:1rem">${items.map(i => `<div style="margin-bottom:.8rem;position:relative"><span style="position:absolute;left:-1.37rem;top:.35rem;width:10px;height:10px;border-radius:50%;background:#2563eb"></span><div style="font-weight:600;font-size:.85rem">${esc(i.title)} <span class="dept-tag" style="font-weight:400">Â· ${formatDate(i.date)}</span></div>${i.note ? `<div class="dept-tag">${esc(i.note)}</div>` : ''}</div>`).join('')}</div>` : '<div class="empty-state">No events yet</div>';
+
+    function viewService(empId) {
+      const reg = syncService(), e = findEmployee(empId); if (!e) return;
+      const v = svcOf(e, reg);
+      perfModalShow(`Service Register â€“ ${esc(e.name)}`, `
+        <div style="display:flex;gap:.8rem;align-items:center;margin-bottom:1rem">${empCell(e)}<span class="badge ${v.exited ? 'inactive' : 'active'}">${v.exited ? 'Left on ' + formatDate(v.last.to) : 'In service'}</span></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.7rem;margin-bottom:.6rem">${svcTiles(v)}</div><div class="dept-tag" style="margin-bottom:1rem;line-height:1.5">${gratuityEstimate(e, v)}</div>
+        <strong style="font-size:.9rem">Service periods</strong><div style="margin:.4rem 0 1rem">${stintTable(v, true, empId)}</div>
+        <strong style="font-size:.9rem">Service log</strong><div style="margin-top:.6rem">${timelineHtml(svcTimeline(e, v.r))}</div>`,
+        `<button class="btn btn-secondary" onclick="closeModal('perfModal')">Close</button>${v.exited ? `<button class="btn btn-primary" onclick="openRejoin('${empId}')">Rejoin Employee</button>` : ''}`);
+    }
+    function openStintEdit(empId, sid) {
+      const x = getReg()[empId].stints.find(t => t.id === sid);
+      perfModalShow('Edit Service Period', `<div class="form-row"><div class="form-group"><label>Joined *</label><input type="date" id="seF" value="${x.from}" /></div><div class="form-group"><label>Left ${x.to ? '*' : '(still in service)'}</label><input type="date" id="seT" value="${x.to || ''}" ${x.to ? '' : 'disabled'} /></div></div>
+        ${x.to ? `<div class="form-group"><label>Exit type</label><select id="seX">${opts(EXIT_TYPES, x.exitType)}</select></div><div class="form-group"><label>Remarks / reason</label><textarea id="seR" rows="2">${esc(x.reason || '')}</textarea></div>` : ''}`,
+        `<button class="btn btn-secondary" onclick="viewService('${empId}')">Back</button><button class="btn btn-primary" onclick="saveStint('${empId}','${sid}')">Save</button>`);
+    }
+    function saveStint(empId, sid) {
+      if (!isHR()) return;
+      const reg = getReg(), x = reg[empId].stints.find(t => t.id === sid), f = seF.value, t = document.getElementById('seT').value;
+      if (!f || (x.to && (!t || t < f))) { showToast('Enter valid joining and leaving dates', 'error'); return; }
+      x.from = f; if (x.to) { x.to = t; x.exitType = seX.value; x.reason = seR.value.trim(); }
+      reg[empId].events.push({ id: uid(), type: 'Record corrected', date: localISO(), note: 'Service period edited by ' + (session?.user || 'admin') });
+      save(STORAGE_KEYS.service, reg);
+      const emps = getEmployees(), e = emps.find(q => q.id === empId), r = reg[empId];
+      if (e && r.stints[r.stints.length - 1] === x) { if (x.to) e.relievingDate = x.to; else e.doj = x.from; setEmployees(emps); }   // keep the employee record in step
+      showToast('Service period updated', 'success'); viewService(empId); refreshCurrentPage();
+    }
+    function openRejoin(empId) {
+      if (!isHR()) return;
+      const e = findEmployee(empId), last = getReg()[empId].stints.slice(-1)[0];
+      perfModalShow(`Rejoin â€“ ${esc(e.name)}`, `<div class="dept-tag" style="margin-bottom:.8rem;line-height:1.6">Last left on <strong>${formatDate(last.to)}</strong>. The previous service stays in the register and is added to the new service.</div>
+        <div class="form-row"><div class="form-group"><label>Rejoining Date *</label><input type="date" id="rjDate" value="${localISO()}" min="${addDays(last.to, 1)}" /></div>
+        <div class="form-group"><label>Status</label><select id="rjStat"><option value="probation">Probation</option><option value="active">Active</option></select></div></div>
+        <div class="form-row"><div class="form-group"><label>Department</label><input id="rjDept" list="deptList" value="${esc(e.dept || '')}" /></div><div class="form-group"><label>Designation</label><input id="rjRole" value="${esc(e.role || '')}" /></div></div>
+        <div class="form-group"><label>Remarks</label><textarea id="rjRem" rows="2" placeholder="e.g. Rejoined after completing CS exam"></textarea></div>`,
+        `<button class="btn btn-secondary" onclick="viewService('${empId}')">Back</button><button class="btn btn-primary" onclick="saveRejoin('${empId}')">Confirm Rejoin</button>`);
+    }
+    function saveRejoin(empId) {
+      if (!isHR()) return;
+      const reg = getReg(), r = reg[empId], last = r.stints[r.stints.length - 1], date = rjDate.value;
+      if (!date || date <= last.to) { showToast('Rejoining date must be after ' + formatDate(last.to), 'error'); return; }
+      const emps = getEmployees(), e = emps.find(q => q.id === empId);
+      Object.assign(e, { status: rjStat.value, doj: date, relievingDate: '', dept: rjDept.value.trim(), role: rjRole.value.trim() }); setEmployees(emps);
+      r.stints.push({ id: uid(), from: date, to: null, role: e.role, dept: e.dept });
+      r.events.push({ id: uid(), type: 'Rejoined', date, note: [e.role && 'As ' + e.role, rjRem.value.trim()].filter(Boolean).join(' Â· ') });
+      save(STORAGE_KEYS.service, reg);
+      addActivity(`<strong>${esc(e.name)}</strong> rejoined the organization`, 'green');
+      closeModal('perfModal'); showToast('Employee rejoined â€“ previous service retained', 'success'); refreshCurrentPage();
+    }
+    function setSvc(k, v) { if (k === 'f') svcFilter = v; else svcQ = v.trim().toLowerCase(); refreshCurrentPage(); }
+    function exportServiceCSV() {
+      const reg = syncService(), q = v => `"${String(v ?? '').replace(/"/g, '""')}"`, rows = [['Emp ID', 'Name', 'Department', 'Designation', 'First Joined', 'Times Joined', 'Status', 'Last Left', 'Previous Service', 'Current Service', 'Total Service']];
+      getEmployees().forEach(e => { const v = svcOf(e, reg); rows.push([e.empCode, e.name, e.dept, e.role, v.st[0].from, v.st.length, v.exited ? 'Left' : 'In service', v.exited ? v.last.to : '', fmtS(v.prev), v.exited ? '0d' : fmtS(v.cur), fmtS(v.total)]); });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([rows.map(r => r.map(q).join(',')).join('\n')], { type: 'text/csv' })); a.download = 'service-register.csv'; a.click();
+    }
+    function renderService() {
+      if (!isHR()) return '';
+      const reg = syncService(), all = getEmployees().map(e => ({ e, v: svcOf(e, reg) }));
+      const inSvc = all.filter(x => !x.v.exited), ex = all.filter(x => x.v.exited), rj = all.filter(x => x.v.st.length > 1);
+      const avg = inSvc.length ? inSvc.reduce((t, x) => t + monthsOf(x.v.total), 0) / inSvc.length : 0, top = inSvc.slice().sort((a, b) => monthsOf(b.v.total) - monthsOf(a.v.total))[0];
+      const list = all.filter(x => (svcFilter === 'all' || (svcFilter === 'in' ? !x.v.exited : svcFilter === 'ex' ? x.v.exited : x.v.st.length > 1)) && (!svcQ || (x.e.name + ' ' + (x.e.empCode || '')).toLowerCase().includes(svcQ)));
+      const tile = (l, v, c, k) => `<div onclick="setSvc('f','${k}')" style="cursor:pointer;border:1px solid ${svcFilter === k ? c : 'var(--border)'};border-left:4px solid ${c};border-radius:10px;padding:.7rem .85rem;background:#fff"><div class="dept-tag" style="font-size:.74rem">${l}</div><div style="font-size:1.4rem;font-weight:700;color:${c}">${v}</div></div>`;
+      return `
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.75rem;margin-bottom:1.25rem">
+          ${tile('All Employees (ever)', all.length, '#0f172a', 'all')}${tile('In Service', inSvc.length, '#059669', 'in')}${tile('Left / Ex-employees', ex.length, '#dc2626', 'ex')}${tile('Rejoined', rj.length, '#d97706', 'rj')}
+          <div style="border:1px solid var(--border);border-left:4px solid #2563eb;border-radius:10px;padding:.7rem .85rem;background:#fff"><div class="dept-tag" style="font-size:.74rem">Average Service</div><div style="font-size:1.4rem;font-weight:700;color:#2563eb">${fmtS({ y: Math.floor(avg / 12), m: Math.floor(avg % 12), d: 0 })}</div></div>
+          <div style="border:1px solid var(--border);border-left:4px solid #7c3aed;border-radius:10px;padding:.7rem .85rem;background:#fff"><div class="dept-tag" style="font-size:.74rem">Longest Serving</div><div style="font-size:1.1rem;font-weight:700;color:#7c3aed">${top ? esc(top.e.name) : 'â€”'}</div><div class="dept-tag">${top ? fmtS(top.v.total) : ''}</div></div>
+        </div>
+        <div class="card"><div class="card-header" style="flex-wrap:wrap;gap:.6rem"><h2>Service Register (${list.length})</h2>
+          <div class="btn-group"><input placeholder="Search name or ID" value="${esc(svcQ)}" onchange="setSvc('q',this.value)" style="padding:.45rem .7rem;border:1px solid var(--border);border-radius:8px" /><select onchange="setSvc('f',this.value)" style="padding:.45rem .7rem;border:1px solid var(--border);border-radius:8px">${[['all', 'Everyone'], ['in', 'In service'], ['ex', 'Left'], ['rj', 'Rejoined']].map(([k, l]) => `<option value="${k}" ${svcFilter === k ? 'selected' : ''}>${l}</option>`).join('')}</select><button class="btn btn-secondary" onclick="exportServiceCSV()">Export CSV</button></div></div>
+          <div class="card-body table-wrap">${list.length ? `<table><thead><tr><th>Employee</th><th>First Joined</th><th>Joined</th><th>Previous Service</th><th>Current Service</th><th>Total Service</th><th>Status</th><th>Action</th></tr></thead><tbody>${list.map(({ e, v }) => `<tr><td>${empCell(e)}</td><td class="dept-tag">${formatDate(v.st[0].from)}</td><td>${v.st.length > 1 ? `<span class="badge probation">${v.st.length} times</span>` : '1 time'}</td><td>${v.st.length > 1 || v.exited ? fmtS(v.prev) : 'â€”'}</td><td>${v.exited ? 'â€”' : fmtS(v.cur)}</td><td><strong>${fmtS(v.total)}</strong></td>
+            <td>${v.exited ? `<span class="badge inactive">Left</span><div class="dept-tag">${formatDate(v.last.to)}</div>` : '<span class="badge active">In service</span>'}</td>
+            <td><div class="btn-group" style="flex-wrap:nowrap"><button class="btn btn-edit" onclick="viewService('${e.id}')">View</button>${v.exited ? `<button class="btn btn-approve" onclick="openRejoin('${e.id}')">Rejoin</button>` : ''}</div></td></tr>`).join('')}</tbody></table>` : '<div class="empty-state">No employees match</div>'}</div></div>
+        <p class="dept-tag" style="padding:1rem 0;line-height:1.6">Service counts the joining day and the last working day. Leaving is recorded automatically when an employee is marked Inactive, given a relieving date, or their accepted resignation's last working date passes. Use Rejoin to bring an ex-employee back: earlier service is kept and added to the new service.</p>`;
+    }
+    function renderMyService() {
+      const e = findEmployee(session?.empId); if (!e) return '';
+      const reg = syncService(), v = svcOf(e, reg);
+      return `<div class="card"><div class="card-header"><h2>My Service Record</h2><span class="badge ${v.exited ? 'inactive' : 'active'}">${v.exited ? 'Left' : 'In service'}</span></div><div style="padding:1.1rem 1.25rem">
+        <div class="dept-tag" style="margin-bottom:.8rem">${esc(e.role || '')}${e.dept ? ' Â· ' + esc(e.dept) : ''} Â· First joined ${formatDate(v.st[0].from)}</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.7rem;margin-bottom:1.1rem">${svcTiles(v)}</div>
+        <strong style="font-size:.9rem">Service periods</strong><div style="margin:.4rem 0 1.1rem">${stintTable(v, false)}</div>
+        <strong style="font-size:.9rem">Service log</strong><div style="margin-top:.6rem">${timelineHtml(svcTimeline(e, v.r))}</div></div></div>`;
+    }
+
+
+    // ========== MENU ACCESS (admin controls which menus each employee can use) ==========
+    const EMP_MENUS = [['myleave', 'My Leave'], ['myresign', 'My Resignation'], ['myletters', 'My Letters'], ['myatt', 'My Attendance'], ['myperm', 'My Permissions & OD'], ['myperf', 'My Performance'], ['mystat', 'My Statutory Statements'], ['myservice', 'My Service']];
+    const getPrivs = () => { const p = load(STORAGE_KEYS.privs) || {}; return { defaults: p.defaults || {}, byEmp: p.byEmp || {} }; };
+    function canMenu(page, empId) { const p = getPrivs(); return (p.byEmp[empId] || {})[page] ?? p.defaults[page] ?? true; }
+    function firstAllowed() { const m = EMP_MENUS.find(([k]) => canMenu(k, session?.empId)); return m ? m[0] : 'noaccess'; }
+    function updateNavAccess() {
+      const hr = isHR();
+      document.querySelectorAll('.nav-item').forEach(el => {
+        const empOnly = EMP_PAGES.includes(el.dataset.page);
+        el.style.display = hr ? (empOnly ? 'none' : '') : (empOnly && canMenu(el.dataset.page, session?.empId) && (el.dataset.page !== 'mystat' || anyEmpMod()) ? '' : 'none');
+      });
+    }
+    function setPriv(empId, page, on) {
+      if (!isHR()) return;
+      const p = getPrivs(), o = p.byEmp[empId] || {};
+      if (on === (p.defaults[page] ?? true)) delete o[page]; else o[page] = on;
+      if (Object.keys(o).length) p.byEmp[empId] = o; else delete p.byEmp[empId];
+      save(STORAGE_KEYS.privs, p); refreshCurrentPage();
+    }
+    function setDefaultPriv(page, on) {
+      if (!isHR()) return;
+      const p = getPrivs(); if (on) delete p.defaults[page]; else p.defaults[page] = false;
+      Object.values(p.byEmp).forEach(o => { if (o[page] === on) delete o[page]; });
+      Object.keys(p.byEmp).forEach(k => { if (!Object.keys(p.byEmp[k]).length) delete p.byEmp[k]; });
+      save(STORAGE_KEYS.privs, p); refreshCurrentPage();
+    }
+    function resetPriv(empId) { const p = getPrivs(); if (empId) delete p.byEmp[empId]; else if (confirm('Remove every custom setting and use the defaults for all employees?')) p.byEmp = {}; else return; save(STORAGE_KEYS.privs, p); refreshCurrentPage(); }
+    function setAllPriv(empId, on) { const p = getPrivs(), o = {}; EMP_MENUS.forEach(([k]) => { if (on !== (p.defaults[k] ?? true)) o[k] = on; }); if (Object.keys(o).length) p.byEmp[empId] = o; else delete p.byEmp[empId]; save(STORAGE_KEYS.privs, p); refreshCurrentPage(); }
+    let accQ = '';
+    function renderAccess() {
+      if (!isHR()) return '';
+      const p = getPrivs(), emps = getEmployees().filter(e => e.status !== 'inactive' && (!accQ || (e.name + ' ' + (e.empCode || '')).toLowerCase().includes(accQ)));
+      const cb = (chk, fn) => `<input type="checkbox" ${chk ? 'checked' : ''} onchange="${fn}" style="width:18px;height:18px;cursor:pointer" />`;
+      return `
+        <div class="card" style="margin-bottom:1.25rem"><div class="card-header"><h2>Default menus for all employees</h2></div><div style="padding:1.1rem 1.25rem">
+          <div class="dept-tag" style="margin-bottom:.8rem;line-height:1.6">Switch a menu off to hide it from every employee. You can still give it back to individual employees in the table below.</div>
+          <div style="display:flex;gap:1.2rem;flex-wrap:wrap">${EMP_MENUS.map(([k, l]) => `<label style="display:flex;gap:.45rem;align-items:center;font-size:.85rem">${cb(p.defaults[k] ?? true, `setDefaultPriv('${k}',this.checked)`)}${l}</label>`).join('')}</div></div></div>
+        <div class="card"><div class="card-header" style="flex-wrap:wrap;gap:.6rem"><h2>Menu access by employee</h2><div class="btn-group"><input placeholder="Search name or ID" value="${esc(accQ)}" onchange="accQ=this.value.trim().toLowerCase();refreshCurrentPage()" style="padding:.45rem .7rem;border:1px solid var(--border);border-radius:8px" /><button class="btn btn-secondary" onclick="resetPriv()">Reset all to default</button></div></div>
+          <div class="card-body table-wrap">${emps.length ? `<table><thead><tr><th>Employee</th>${EMP_MENUS.map(([, l]) => `<th style="text-align:center;white-space:normal;padding:.6rem .4rem;min-width:70px">${l}</th>`).join('')}<th></th></tr></thead><tbody>${emps.map(e => `<tr><td>${empCell(e)}${p.byEmp[e.id] ? '<span class="badge probation">Custom</span>' : ''}</td>${EMP_MENUS.map(([k]) => `<td style="text-align:center">${cb(canMenu(k, e.id), `setPriv('${e.id}','${k}',this.checked)`)}</td>`).join('')}
+            <td><div class="btn-group" style="flex-wrap:nowrap"><button class="btn btn-approve" onclick="setAllPriv('${e.id}',true)" title="Give all menus">On</button><button class="btn btn-delete" onclick="setAllPriv('${e.id}',false)" title="Remove all menus">Off</button>${p.byEmp[e.id] ? `<button class="btn btn-secondary" onclick="resetPriv('${e.id}')">Reset</button>` : ''}</div></td></tr>`).join('')}</tbody></table>` : '<div class="empty-state">No employees found</div>'}</div></div>
+        <p class="dept-tag" style="padding:1rem 0;line-height:1.6">Changes apply as soon as the employee opens another menu or logs in again. A hidden menu cannot be opened by the employee, even by typing its address. Admin menus are not affected by this page.</p>`;
+    }
+
+
+    // ========== FINGERPRINT (phone biometric) FOR CHECK-IN / CHECK-OUT ==========
+    // Web: WebAuthn platform authenticator (the phone asks for fingerprint / face / screen lock).
+    // Android app: native BiometricPrompt through the AndroidBio bridge.
+    let bioOkAt = 0, bioFallbackAt = 0, bioFallbackWhy = '';
+    const getBioCfg = () => load(STORAGE_KEYS.bioCfg) || { required: false };
+    const getBio = () => load(STORAGE_KEYS.bio) || {};
+    const b64u = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    const unb64u = t => Uint8Array.from(atob(t.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+    function deviceId() { let d = localStorage.getItem('ra_device_id'); if (!d) { d = uid(); localStorage.setItem('ra_device_id', d); } return d; }
+    function bioAndroid() {
+      return new Promise(res => {
+        const id = uid().replace(/[^A-Za-z0-9]/g, ''); window.__bioCb = window.__bioCb || {}; window.__bioCb[id] = res;
+        window.__bioDone = (i, ok) => { const f = window.__bioCb[i]; if (f) { delete window.__bioCb[i]; f(ok); } };
+        window.AndroidBio.authenticate(id);
+      });
+    }
+    function bioSourceLabel() { const n = Date.now(); return n - bioOkAt < 120000 ? 'Fingerprint + Selfie' : n - bioFallbackAt < 120000 ? 'Selfie (fingerprint unavailable)' : 'Selfie'; }
+    async function bioGate() {
+      const cfg = getBioCfg();
+      if (!cfg.emps || !cfg.emps[session.empId]) return true;   // fingerprint only for employees HR has switched on
+      const emp = findEmployee(session.empId), all = getBio(), mine = all[emp.id] || [];
+      // Fingerprint cannot be used on this phone / browser -> take a photograph instead (if HR allows it)
+      const fallback = why => {
+        if (cfg.photoFallback === false) { showToast(why + '. Please contact HR.', 'error'); return false; }
+        bioFallbackAt = Date.now(); bioFallbackWhy = why; showToast(why + ' â€“ please take a photograph to mark attendance.'); return true;
+      };
+      try {
+        if (window.AndroidBio) {
+          if (!window.AndroidBio.canAuthenticate()) return fallback('Fingerprint is not set up on this phone');
+          const key = 'android-' + deviceId(), enrolled = mine.some(c => c.id === key);
+          if (!enrolled && !confirm('Register this phone for fingerprint attendance? You will be asked to scan your finger.')) return false;
+          if (!(await bioAndroid())) { showToast('Fingerprint not verified', 'error'); return false; }
+          if (!enrolled) { mine.push({ id: key, at: new Date().toISOString(), name: 'Android app' }); all[emp.id] = mine; save(STORAGE_KEYS.bio, all); }
+          bioOkAt = Date.now(); return true;
+        }
+        if (!window.isSecureContext || !window.PublicKeyCredential || !navigator.credentials) return fallback('This browser does not support fingerprint verification');
+        if (/^\d+\.\d+\.\d+\.\d+$/.test(location.hostname)) return fallback('Fingerprint needs the web address (not the IP address)');
+        if (!(await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable())) return fallback('No fingerprint or screen lock is set up on this phone');
+        const web = mine.filter(c => !c.id.startsWith('android-')), ch = crypto.getRandomValues(new Uint8Array(32));
+        if (!web.length) {
+          if (!confirm('Register this phone for fingerprint attendance? You will be asked to scan your finger.')) return false;
+          const cred = await navigator.credentials.create({ publicKey: { rp: { name: 'R & A HRMS', id: location.hostname }, user: { id: new TextEncoder().encode(emp.id), name: emp.empCode || emp.name, displayName: emp.name }, challenge: ch, pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }], authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required', residentKey: 'discouraged' }, timeout: 60000 } });
+          mine.push({ id: b64u(cred.rawId), at: new Date().toISOString(), name: 'Browser / phone' }); all[emp.id] = mine; save(STORAGE_KEYS.bio, all);
+        } else {
+          await navigator.credentials.get({ publicKey: { challenge: ch, rpId: location.hostname, allowCredentials: web.map(c => ({ type: 'public-key', id: unb64u(c.id) })), userVerification: 'required', timeout: 60000 } });
+        }
+        bioOkAt = Date.now(); return true;
+      } catch (e) {
+        if (e && (e.name === 'NotSupportedError' || e.name === 'SecurityError')) return fallback('Fingerprint is not available in this browser');
+        showToast('Fingerprint failed, cancelled, or this phone is not the one registered. Ask HR to reset your fingerprint registration.', 'error'); return false;
+      }
+    }
+    const _openSelfieBase = openSelfie;
+    openSelfie = async function (kind) { if (!isHR() && !(await bioGate())) return; _openSelfieBase(kind); };
+    function setBioEmp(empId, on) { if (!isHR()) return; const c = getBioCfg(), m = { ...(c.emps || {}) }; if (on) m[empId] = true; else delete m[empId]; save(STORAGE_KEYS.bioCfg, { ...c, emps: m }); refreshCurrentPage(); }
+    function setBioAll(on) { if (!isHR()) return; const m = {}; if (on) getEmployees().filter(e => e.status !== 'inactive').forEach(e => m[e.id] = true); save(STORAGE_KEYS.bioCfg, { ...getBioCfg(), emps: m }); showToast(on ? 'Fingerprint switched on for all employees' : 'Fingerprint switched off for all employees', 'success'); refreshCurrentPage(); }
+    function setBioFallback(on) { if (!isHR()) return; save(STORAGE_KEYS.bioCfg, { ...getBioCfg(), photoFallback: on }); refreshCurrentPage(); }
+    function resetBio(empId) { if (!isHR() || !confirm('Remove this employee\'s registered fingerprint devices? They will register again at the next check-in.')) return; const a = getBio(); delete a[empId]; save(STORAGE_KEYS.bio, a); refreshCurrentPage(); }
+    function renderBioCard() {
+      const cfg = getBioCfg(), on = cfg.emps || {}, all = getBio(), emps = getEmployees().filter(e => e.status !== 'inactive'), n = emps.filter(e => on[e.id]).length;
+      return `<div class="card"><div class="card-header" style="flex-wrap:wrap;gap:.6rem"><h2>Fingerprint Attendance (mobile biometric)</h2><div class="btn-group"><button class="btn btn-approve" onclick="setBioAll(true)">Enable for all</button><button class="btn btn-secondary" onclick="setBioAll(false)">Disable for all</button></div></div><div class="card-body" style="padding:1.25rem">
+        <p class="dept-tag" style="margin-bottom:.8rem;line-height:1.6"><strong>${n} of ${emps.length}</strong> employees need a fingerprint. Switch it on only for the employees you choose; everyone else checks in normally (selfie + location). When on, the phone asks for the fingerprint (or face / screen lock) at Check In / Check Out; the first time, they register their phone. Works in the Android app, and in a mobile browser at <strong>https://hrms.rna-cs.com</strong> (not the IP address).</p>
+        <label style="display:flex;gap:.5rem;align-items:center;font-size:.85rem;margin-bottom:1rem"><input type="checkbox" ${cfg.photoFallback === false ? '' : 'checked'} onchange="setBioFallback(this.checked)" style="width:17px;height:17px" /> If fingerprint is not available on the phone or browser, take a photograph instead (recorded as "Selfie (fingerprint unavailable)")</label>
+        <div class="table-wrap">${emps.length ? `<table><thead><tr><th>Employee</th><th style="text-align:center">Fingerprint required</th><th>Registered devices</th><th></th></tr></thead><tbody>${emps.map(e => `<tr><td>${empCell(e)}</td><td style="text-align:center"><input type="checkbox" ${on[e.id] ? 'checked' : ''} onchange="setBioEmp('${e.id}',this.checked)" style="width:18px;height:18px;cursor:pointer" /></td><td>${(all[e.id] || []).length ? (all[e.id] || []).map(c => `<div class="dept-tag">${esc(c.name)} Â· ${formatDate((c.at || '').slice(0, 10))}</div>`).join('') : '<span class="dept-tag">Not registered</span>'}</td><td>${(all[e.id] || []).length ? `<button class="btn btn-delete" onclick="resetBio('${e.id}')">Reset</button>` : ''}</td></tr>`).join('')}</tbody></table>` : '<div class="empty-state">No employees</div>'}</div></div></div>`;
+    }
+
+
+    // ========== PAYROLL COMPLIANCE (India / Telangana): statutory details, reports, payslip ==========
+    function setPayCfg(k, v) { if (!isHR()) return; save(STORAGE_KEYS.payCfg, { ...payCfg(), [k]: v }); refreshCurrentPage(); }
+    function dl(name, text, type) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: type || 'text/csv' })); a.download = name; a.click(); }
+    const csvq = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    function openStat(empId) {
+      const e = findEmployee(empId), t = getStat()[empId] || {}, f = (id, l, v, ph = '') => `<div class="form-group"><label>${l}</label><input id="${id}" value="${esc(v || '')}" placeholder="${ph}" /></div>`;
+      perfModalShow(`Statutory & bank details â€“ ${esc(e.name)}`, `
+        <div class="form-row">${f('stUAN', 'UAN (PF)', t.uan, '12 digits')}${f('stESI', 'ESI IP number', t.esi, '17 digits')}</div>
+        <div class="form-row">${f('stPAN', 'PAN', t.pan, 'ABCDE1234F')}${f('stBank', 'Bank name', t.bank)}</div>
+        <div class="form-row">${f('stAcc', 'Bank account no.', t.acc)}${f('stIFSC', 'IFSC', t.ifsc)}</div>
+        <label style="display:flex;gap:.45rem;align-items:center;font-size:.85rem;margin-top:.4rem"><input type="checkbox" id="stPfOff" ${t.pfOff ? 'checked' : ''} /> PF not applicable (excluded employee / not a member)</label>
+        <label style="display:flex;gap:.45rem;align-items:center;font-size:.85rem;margin-top:.4rem"><input type="checkbox" id="stEsiOff" ${t.esiOff ? 'checked' : ''} /> ESI not applicable</label>
+        <label style="display:flex;gap:.45rem;align-items:center;font-size:.85rem;margin-top:.4rem"><input type="checkbox" id="stDis" ${t.disabled ? 'checked' : ''} /> Person with disability (ESI limit â‚¹25,000)</label>`,
+        `<button class="btn btn-secondary" onclick="closeModal('perfModal')">Cancel</button><button class="btn btn-primary" onclick="saveStat('${empId}')">Save</button>`);
+    }
+    function saveStat(empId) {
+      const all = getStat(), v = id => document.getElementById(id).value.trim();
+      all[empId] = { uan: v('stUAN'), esi: v('stESI'), pan: v('stPAN').toUpperCase(), bank: v('stBank'), acc: v('stAcc'), ifsc: v('stIFSC').toUpperCase(), pfOff: stPfOff.checked, esiOff: stEsiOff.checked, disabled: stDis.checked };
+      save(STORAGE_KEYS.stat, all); closeModal('perfModal'); showToast('Statutory details saved', 'success'); refreshCurrentPage();
+    }
+    const payRowsNow = () => payRows(getPayruns()[payMonth]).filter(r => r.payStatus !== 'forward' || true);
+    function exportECR() {   // EPFO ECR text file (#~# separated)
+      const st = getStat(), rows = payRowsNow().filter(r => (r.pfWages || 0) > 0); let miss = 0;
+      const lines = rows.filter(r => { if (!(st[r.empId] || {}).uan) { miss++; return false; } return true; }).map(r => [st[r.empId].uan, r.name.toUpperCase(), Math.round(r.earned), Math.round(r.pfWages), Math.round(r.epsWages), Math.round(r.epsWages), r.eeEpf, r.eps, r.erEpfShare, Math.round(r.unpaidDays || 0), 0].join('#~#'));
+      if (!lines.length) { showToast('No PF members with a UAN for this month', 'error'); return; }
+      dl(`ECR-${payMonth}.txt`, lines.join('\n'), 'text/plain'); if (miss) showToast(`${miss} employee(s) skipped: UAN missing`, 'error');
+    }
+    function exportESI() {
+      const st = getStat(), rows = payRowsNow().filter(r => (r.esiWages || 0) > 0), dim = new Date(+payMonth.slice(0, 4), +payMonth.slice(5, 7), 0).getDate();
+      if (!rows.length) { showToast('No ESI-covered employees this month', 'error'); return; }
+      dl(`ESI-${payMonth}.csv`, ['IP Number,IP Name,No of Days for which wages paid/payable during the month,Total Monthly Wages,Reason Code for Zero workings days,Last Working Day'].concat(rows.map(r => [csvq((st[r.empId] || {}).esi || ''), csvq(r.name), Math.max(0, dim - Math.round(r.unpaidDays || 0)), Math.round(r.esiWages), '', csvq(r.lwd || '')].join(','))).join('\n'));
+    }
+    function exportPT() { const rows = payRowsNow().filter(r => r.pt > 0), st = getStat(); dl(`PT-${payMonth}.csv`, ['Employee,PAN,Gross wages earned,Professional tax'].concat(rows.map(r => [csvq(r.name), csvq((st[r.empId] || {}).pan || ''), Math.round(r.earned), r.pt].join(','))).join('\n')); }
+    function exportBank() { const st = getStat(), rows = payRowsNow().filter(r => r.payable > 0); dl(`bank-advice-${payMonth}.csv`, ['Employee,Bank,Account no.,IFSC,Net amount'].concat(rows.map(r => { const t = st[r.empId] || {}; return [csvq(r.name), csvq(t.bank || ''), csvq(t.acc || ''), csvq(t.ifsc || ''), Math.round(r.payable)].join(','); })).join('\n')); }
+    function renderStatCard() {
+      if (!isHR()) return '';
+      const cfg = payCfg(), rows = payRowsNow(), sum = k => rows.reduce((t, r) => t + (r[k] || 0), 0), st = getStat(), ceil = pfCeiling(payMonth);
+      const pfEe = sum('eeEpf'), pfEr = sum('eeEpf') + sum('edli') + sum('pfAdmin'), esi = sum('esiEe') + sum('esiEr'), nxt = monthLabel(nextMonthOf(payMonth));
+      const withCtc = getEmployees().filter(e => e.status !== 'inactive' && (getCTCs()[e.id] || 0) > 0), bad50 = withCtc.filter(e => { const s = structure(getCTCs()[e.id]); return s.basic < 0.5 * (s.ctc - s.erEpf - s.grat) - 1; });
+      const missUAN = rows.filter(r => r.pfWages > 0 && !(st[r.empId] || {}).uan).length, missESI = rows.filter(r => r.esiWages > 0 && !(st[r.empId] || {}).esi).length, missBank = rows.filter(r => r.payable > 0 && !(st[r.empId] || {}).acc).length;
+      const chk = (ok, t) => `<div style="font-size:.82rem;margin:.25rem 0">${ok ? 'âœ…' : 'âš ï¸'} ${t}</div>`, box = (k, l, on) => `<label style="display:flex;gap:.5rem;align-items:center;font-size:.85rem;margin:.35rem 0"><input type="checkbox" ${on ? 'checked' : ''} onchange="setPayCfg('${k}',this.checked)" style="width:17px;height:17px" /> ${l}</label>`;
+      return `<div class="card" style="margin-top:1.25rem"><div class="card-header" style="flex-wrap:wrap;gap:.6rem"><h2>Statutory Compliance â€“ India / Telangana</h2><div class="btn-group"><button class="btn btn-secondary" onclick="exportECR()">PF ECR file</button><button class="btn btn-secondary" onclick="exportESI()">ESI file</button><button class="btn btn-secondary" onclick="exportPT()">PT list</button><button class="btn btn-secondary" onclick="exportBank()">Bank advice</button></div></div>
+        <div style="padding:1.1rem 1.25rem;display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.4rem">
+          <div><strong style="font-size:.9rem">Payable for ${monthLabel(payMonth)}</strong>
+            <table style="margin-top:.5rem"><tbody>
+              <tr><td>Provident Fund</td><td class="num"><strong>${inr(pfEe + pfEr)}</strong></td><td class="dept-tag">by 15 ${nxt.split(' ')[0]}</td></tr>
+              <tr><td class="dept-tag" colspan="3">Employee ${inr(pfEe)} Â· Employer EPF ${inr(sum('erEpfShare'))} + EPS ${inr(sum('eps'))} Â· EDLI ${inr(sum('edli'))} Â· Admin ${inr(sum('pfAdmin'))}</td></tr>
+              <tr><td>ESI</td><td class="num"><strong>${inr(esi)}</strong></td><td class="dept-tag">by 15 ${nxt.split(' ')[0]}</td></tr>
+              <tr><td>Professional Tax (Telangana)</td><td class="num"><strong>${inr(sum('pt'))}</strong></td><td class="dept-tag">by 10 ${nxt.split(' ')[0]}</td></tr>
+              <tr><td>TDS on salary</td><td class="num"><strong>${inr(sum('tds'))}</strong></td><td class="dept-tag">by 7 ${nxt.split(' ')[0]}</td></tr>
+              ${cfg.lwfOn && payMonth.slice(5) === '12' ? `<tr><td>Labour Welfare Fund</td><td class="num"><strong>${inr(sum('lwfEe') + sum('lwfEr'))}</strong></td><td class="dept-tag">by 31 Jan</td></tr>` : ''}
+            </tbody></table></div>
+          <div><strong style="font-size:.9rem">Settings</strong>
+            ${box('pfOnActual', `PF on actual Basic (above the â‚¹${ceil.toLocaleString('en-IN')} ceiling, voluntary). Untick = PF capped at the ceiling`, cfg.pfOnActual)}
+            ${box('edliOn', 'Employer EDLI 0.5%', cfg.edliOn)}${box('ctcAdmin', 'EDLI + PF admin charges inside CTC (lowers Special Allowance)', cfg.ctcAdmin)}${box('esiOn', 'ESI applicable (gross up to â‚¹21,000: 0.75% employee + 3.25% employer)', cfg.esiOn)}${box('lwfOn', 'Telangana Labour Welfare Fund (â‚¹2 employee + â‚¹5 employer, deducted in December)', cfg.lwfOn)}
+            <div class="dept-tag" style="margin-top:.5rem;line-height:1.5">PF wage ceiling: â‚¹25,000 from 17 Sep 2026 (â‚¹15,000 before; September 2026 is pro-rated to â‚¹${pfCeiling('2026-09').toLocaleString('en-IN')}).</div></div>
+          <div><strong style="font-size:.9rem">Checks</strong>
+            ${chk(!bad50.length, bad50.length ? `Basic is below 50% of remuneration for ${bad50.length} employee(s) â€“ Labour Codes wage rule` : 'Basic â‰¥ 50% of remuneration for all employees (Labour Codes)')}
+            ${chk(!missUAN, missUAN ? `${missUAN} PF member(s) have no UAN` : 'UAN present for all PF members')}${chk(!missESI, missESI ? `${missESI} ESI member(s) have no IP number` : 'ESI numbers present')}${chk(!missBank, missBank ? `${missBank} employee(s) have no bank account` : 'Bank details present')}
+            <div class="dept-tag" style="margin-top:.5rem;line-height:1.5">Optional modules (statutory bonus, overtime, minimum-wage check, leave encashment, full &amp; final, Form 130/16 and 138/24Q) are under Statutory Modules and stay off until an admin activates them.</div></div>
+        </div></div>`;
+    }
+    function viewPayslip(empId) {
+      const r = payRowsNow().find(x => x.empId === empId), e = findEmployee(empId); if (!r || !e) return;
+      const t = getStat()[empId] || {}, dim = new Date(+payMonth.slice(0, 4), +payMonth.slice(5, 7), 0).getDate(), row = (a, b) => `<tr><td>${a}</td><td class="num">${inr(b)}</td></tr>`;
+      document.getElementById('letterTitle').textContent = 'Payslip';
+      document.getElementById('letterPaper').innerHTML = letterHead() + `<p style="text-align:center;font-weight:700;margin:.4rem 0">PAYSLIP â€“ ${monthLabel(payMonth)}</p>
+        <table class="l-table"><tbody><tr><td><strong>${esc(e.name)}</strong> (${esc(e.empCode || '')})<br>${esc(e.role || '')}, ${esc(e.dept || '')}<br>Date of joining: ${formatDate(e.doj)}</td><td>UAN: ${esc(t.uan || 'â€”')}<br>ESI No.: ${esc(t.esi || 'â€”')}<br>PAN: ${esc(t.pan || 'â€”')}<br>Bank A/c: ${esc(t.acc || 'â€”')}</td><td>Days in month: ${dim}<br>Loss of pay days: ${r.unpaidDays || 0}<br>Days paid: ${dim - Math.round(r.unpaidDays || 0)}</td></tr></tbody></table>
+        <table class="l-table" style="margin-top:.6rem"><thead><tr><th>Earnings</th><th class="num">Amount</th></tr></thead><tbody>${row('Basic Salary', r.basic)}${row('House Rent Allowance', r.hra)}${row('Conveyance / Transport', r.conv)}${row('Special Allowance', r.special)}${r.lop ? row('Less: Loss of pay', -r.lop) : ''}${r.exOt ? row('Overtime (' + r.exOtHrs + ' h at 2x rate)', r.exOt) : ''}${r.exBonus ? row('Statutory bonus', r.exBonus) : ''}${r.exEnc ? row('Leave encashment', r.exEnc) : ''}${r.exArr ? row('Arrears', r.exArr) : ''}<tr class="tot"><td>Gross earnings</td><td class="num">${inr(r.earned + (r.extra || 0))}</td></tr></tbody></table>
+        <table class="l-table" style="margin-top:.6rem"><thead><tr><th>Deductions</th><th class="num">Amount</th></tr></thead><tbody>${row('Provident Fund (employee)', r.eeEpf)}${r.esiEe ? row('ESI (employee)', r.esiEe) : ''}${row('Professional Tax (Telangana)', r.pt)}${row('Income Tax (TDS)', r.tds + (r.tdsX || 0))}${r.exArrDed ? row('PF / ESI on arrears', r.exArrDed) : ''}${r.lwfEe ? row('Labour Welfare Fund', r.lwfEe) : ''}<tr class="tot"><td>Total deductions</td><td class="num">${inr(r.eeEpf + (r.esiEe || 0) + r.pt + r.tds + (r.tdsX || 0) + (r.exArrDed || 0) + (r.lwfEe || 0))}</td></tr><tr class="tot"><td>NET PAY</td><td class="num">${inr(r.net)}</td></tr></tbody></table>
+        <p class="l-note">Employer contributions (not deducted): EPF ${inr(r.erEpfShare || 0)} Â· EPS ${inr(r.eps || 0)} Â· EDLI ${inr(r.edli || 0)}${r.esiEr ? ' Â· ESI ' + inr(r.esiEr) : ''}. This is a computer-generated payslip.</p>`;
+      document.getElementById('letterAcceptBtn').style.display = 'none'; openModal('letterModal');
+    }
+    function gratuityEstimate(e, v) {   // Payment of gratuity: 15 days' wages per completed year (6+ months rounds up), 5 years' continuous service, cap Rs 20 lakh
+      const x = v.last, sp = stintSvc(x, localISO()), years = sp.y + (sp.m >= 6 ? 1 : 0), basic = structure(getCTCs()[e.id] || 0).basic;
+      if (!basic) return 'Set the annual CTC to estimate gratuity.';
+      if (sp.y < 5) return `Gratuity: not yet payable (needs 5 years of continuous service; current period ${fmtS(sp)}).`;
+      return `Gratuity (estimate on last service period): ${inr(Math.min(2000000, Math.round(basic / 26 * 15 * years)))} = Basic ${inr(basic)} Ã· 26 Ã— 15 Ã— ${years} years.`;
+    }
+
+    // ========== STATUTORY MODULES (off by default; an admin activates / revokes with credentials) ==========
+    const MODS = [
+      ['bonus', 'Statutory Bonus', 'Annual bonus for employees whose monthly wages are up to â‚¹21,000: 8.33% to 20% of wages, wage ceiling â‚¹7,000 or the minimum wage if higher.'],
+      ['ot', 'Overtime at double rate', 'Overtime hours paid at twice the normal hourly rate of wages (Basic Ã· 30 Ã· daily hours Ã— 2) and added to that month\'s pay.'],
+      ['minwage', 'Minimum-wage check', 'Flags employees paid below the Telangana minimum wage that you enter from the Labour Department notification.'],
+      ['encash', 'Leave encashment', 'Pays accrued leave in cash at Basic Ã· 30 per day, added to a chosen payroll month.'],
+      ['fnf', 'Full & Final settlement', 'Exit statement: leave encashment, gratuity (5 years), notice recovery, other dues and TDS.'],
+      ['arrears', 'Salary arrears', 'Back-dated pay revision: the pay difference for already-processed months, with PF / ESI on the difference and TDS on the lump sum, paid in a chosen month.'],
+      ['f12bb', 'Form 124 (earlier 12BB) and old-regime TDS', 'Employees declare rent, landlord, investments and loan interest. Once HR approves, TDS follows the old regime for that employee.'],
+      ['registers', 'Statutory registers', 'Muster roll (attendance register) and wage register for any month, printable and downloadable.'],
+      ['tds', 'Form 16 / 130 and 24Q / 138', 'Annual salary TDS certificate (Part B working) and quarterly return data sheet. Tax year 2026-27 onward the forms are Form 130 and Form 138.']
+    ];
+    const getMods = () => load(STORAGE_KEYS.modules) || {};
+    const modOn = k => !!(getMods()[k] && getMods()[k].on);
+    const anyEmpMod = () => ['bonus', 'ot', 'encash', 'arrears', 'fnf', 'tds', 'f12bb'].some(modOn);
+    const modCfg = () => ({ bonusPct: 8.33, bonusCeil: 7000, minWage: 0, ...(load(STORAGE_KEYS.modCfg) || {}) });
+    const getPayouts = () => load(STORAGE_KEYS.payouts) || [];
+    const getOT = () => load(STORAGE_KEYS.otlog) || [];
+    const getFnf = () => load(STORAGE_KEYS.fnf) || [];
+    const basicOf = id => structure(getCTCs()[id] || 0).basic;
+    const otRate = basic => basic / 30 / Math.max(1, officeCfg().dailyMin / 60) * 2;
+    const mLocked = m => !!getPayruns()[m];
+    const mi = 'padding:.45rem .6rem;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:.85rem';
+    const empOpts = (list, cur) => list.map(e => `<option value="${e.id}" ${e.id === cur ? 'selected' : ''}>${esc(e.empCode ? e.empCode + ' â€“ ' : '')}${esc(e.name)}</option>`).join('');
+    const pcard = (title, body, right = '') => `<div class="card" style="margin-top:1.25rem"><div class="card-header"><h2>${title}</h2>${right}</div><div class="card-body" style="padding:1rem 1.25rem;overflow-x:auto">${body}</div></div>`;
+    const showDoc = (title, html) => { document.getElementById('letterTitle').textContent = title; document.getElementById('letterPaper').innerHTML = letterHead() + html; document.getElementById('letterAcceptBtn').style.display = 'none'; openModal('letterModal'); };
+    const fyOf = iso => { const y = +iso.slice(0, 4), m = +iso.slice(5, 7), s = m >= 4 ? y : y - 1; return s + '-' + String((s + 1) % 100).padStart(2, '0'); };
+    const fyMonths = fy => { const y = +fy.slice(0, 4); return Array.from({ length: 12 }, (_, i) => { const m = (3 + i) % 12 + 1; return (m >= 4 ? y : y + 1) + '-' + String(m).padStart(2, '0'); }); };
+    const fyList = () => { const y0 = +fyOf(ISO(new Date())).slice(0, 4), o = []; for (let y = y0 - 3; y <= y0; y++) o.push(y + '-' + String((y + 1) % 100).padStart(2, '0')); return o; };
+    let modFY = fyOf(ISO(new Date())), modMonth = ISO(new Date()).slice(0, 7), fnfEmp = '', tdsEmp = '';
+    const fyData = (empId, fy) => fyMonths(fy).map(m => { const run = getPayruns()[m], r = run && (run.rows || []).find(x => x.empId === empId); return r ? { m, r } : null; }).filter(Boolean);
+    const mySel = (id, opts, cur, fn) => `<select id="${id}" onchange="${fn}" style="${mi}">${opts.map(o => `<option value="${o}" ${o === cur ? 'selected' : ''}>${o}</option>`).join('')}</select>`;
+
+    // admin credential gate
+    let credCb = null;
+    function askCred(title, cb) { credCb = cb; document.getElementById('credTitle').textContent = title; document.getElementById('credForm').reset(); document.getElementById('credErr').textContent = ''; openModal('credModal'); }
+    function credSubmit(ev) {
+      ev.preventDefault();
+      const u = document.getElementById('credUser').value.trim().toLowerCase(), p = document.getElementById('credPass').value;
+      const h = HR_USERS.find(x => x.user === u && x.pass === p);
+      if (!h) { document.getElementById('credErr').textContent = 'Invalid admin credentials'; return; }
+      const cb = credCb; credCb = null; closeModal('credModal'); if (cb) cb(h);
+    }
+    function toggleMod(k, on) {
+      if (!isHR()) return;
+      const d = MODS.find(m => m[0] === k);
+      askCred((on ? 'Activate: ' : 'Revoke: ') + d[1], h => {
+        const m = getMods(), now = new Date().toISOString();
+        m[k] = on ? { on: true, by: h.user, at: now } : { on: false, revokedBy: h.user, revokedAt: now };
+        save(STORAGE_KEYS.modules, m);
+        addActivity(`${d[1]} ${on ? 'activated' : 'revoked'} by <strong>${esc(h.name)}</strong>`, on ? 'green' : 'red');
+        showToast(d[1] + (on ? ' activated' : ' revoked'), 'success'); updateNavAccess(); refreshCurrentPage();
+      });
+    }
+
+    // extras that flow into payroll (only while the module is active; processed months keep their snapshot)
+    function extraFor(empId, month, basic) {
+      const po = getPayouts().filter(p => p.empId === empId && p.month === month && modOn(p.kind)), sum = k => po.filter(p => p.kind === k).reduce((t, p) => t + p.amount, 0), arrDed = po.filter(p => p.kind === 'arrears').reduce((t, p) => t + (p.ded || 0), 0);
+      const hrs = modOn('ot') ? getOT().filter(o => o.empId === empId && o.date.startsWith(month)).reduce((t, o) => t + o.hours, 0) : 0, ot = Math.round(hrs * otRate(basic));
+      const bonus = sum('bonus'), enc = sum('encash'), arr = sum('arrears');
+      return { bonus, enc, arr, arrDed, ot, otHrs: hrs, total: bonus + enc + arr + ot };
+    }
+    const getDecls = () => load(STORAGE_KEYS.decl) || {};
+    const oldDecl = (empId, fy) => { const d = modOn('f12bb') ? getDecls()[empId + '|' + fy] : null; return d && d.status === 'approved' && d.regime === 'old' ? d : null; };
+    const oldSlabTax = t => { let tax = 0, prev = 0; for (const [lim, r] of [[250000, 0], [500000, .05], [1000000, .20], [Infinity, .30]]) { if (t > prev) tax += (Math.min(t, lim) - prev) * r; prev = lim; } if (t <= 500000) tax = 0; return Math.round(tax * (1 + (t > 50000000 ? .37 : t > 20000000 ? .25 : t > 10000000 ? .15 : t > 5000000 ? .10 : 0)) * 1.04); };
+    // Annual tax under the employee's regime: new regime by default, old regime only with an approved declaration
+    function annualTaxFor(empId, fy, gross, st) {
+      const d = oldDecl(empId, fy);
+      if (!d) { const std = Math.min(PAY.stdDeduction, gross), tx = Math.max(0, gross - std); return { regime: 'New regime', std, other: 0, taxable: tx, tax: newRegimeTax(tx) }; }
+      const basicA = (st.basic || 0) * 12, hraA = (st.hra || 0) * 12;
+      const hra = Math.round(Math.max(0, Math.min(hraA, (d.rent || 0) * 12 - 0.1 * basicA, (d.metro ? 0.5 : 0.4) * basicA)));
+      const other = hra + ptFor(gross / 12) * 12 + Math.min(150000, (d.inv || 0) + (st.eeEpf || 0) * 12) + Math.min(100000, d.med || 0) + Math.min(50000, d.nps || 0) + Math.min(200000, d.home || 0);
+      const std = Math.min(50000, gross), tx = Math.max(0, gross - std - other);
+      return { regime: 'Old regime', std, other, taxable: tx, tax: oldSlabTax(tx) };
+    }
+    function tdsFor(empId, month, st) { const fy = fyOf(month + '-01'); return oldDecl(empId, fy) ? Math.round(annualTaxFor(empId, fy, st.gross * 12, st).tax / 12) : monthlyTDS(st.gross); }
+    function tdsOnExtra(gross, extra, empId, month, st) { const fy = fyOf(month + '-01'); return Math.max(0, annualTaxFor(empId, fy, gross * 12 + extra, st).tax - annualTaxFor(empId, fy, gross * 12, st).tax); }
+
+    function saveModCfg(ev) {
+      const c = modCfg(), pct = parseFloat(document.getElementById('mcPct')?.value), ceil = parseFloat(document.getElementById('mcCeil')?.value), mw = parseFloat(document.getElementById('mcMin')?.value);
+      if (document.getElementById('mcPct')) { if (isNaN(pct) || pct < 8.33 || pct > 20) { showToast('Bonus must be between 8.33% and 20%', 'error'); return; } c.bonusPct = pct; c.bonusCeil = isNaN(ceil) ? 7000 : ceil; }
+      if (document.getElementById('mcMin')) c.minWage = isNaN(mw) ? 0 : mw;
+      save(STORAGE_KEYS.modCfg, c); showToast('Saved', 'success'); refreshCurrentPage();
+    }
+    const setModFY = v => { modFY = v; refreshCurrentPage(); };
+    const setModMonth = v => { if (/^\d{4}-\d{2}$/.test(v)) { modMonth = v; refreshCurrentPage(); } };
+
+    // ---- Statutory bonus
+    function bonusPanel() {
+      const c = modCfg(), rows = getEmployees().filter(e => e.status !== 'inactive').map(e => {
+        const worked = fyData(e.id, modFY).filter(x => x.r.earned > 0), basic = basicOf(e.id);
+        const base = Math.round(worked.reduce((t, x) => t + Math.min(x.r.basic || 0, c.bonusCeil) * (30 - (x.r.unpaidDays || 0)) / 30, 0));
+        const eligible = basic > 0 && basic <= 21000 && worked.length > 0, done = getPayouts().find(p => p.empId === e.id && p.kind === 'bonus' && p.fy === modFY);
+        return { e, n: worked.length, base, eligible, amt: eligible ? Math.round(base * c.bonusPct / 100) : 0, done };
+      }).filter(r => r.eligible || r.done);
+      const body = `<div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin-bottom:.8rem"><span class="dept-tag">Year</span>${mySel('mFY', fyList(), modFY, 'setModFY(this.value)')}<span class="dept-tag">Bonus %</span><input id="mcPct" type="number" step="0.01" min="8.33" max="20" value="${c.bonusPct}" style="${mi};width:80px" /><span class="dept-tag">Wage ceiling â‚¹</span><input id="mcCeil" type="number" value="${c.bonusCeil}" style="${mi};width:90px" /><button class="btn btn-secondary" onclick="saveModCfg()">Save</button><span class="dept-tag">Pay in</span><input type="month" value="${modMonth}" onchange="setModMonth(this.value)" style="${mi}" /></div>
+        <div class="dept-tag" style="line-height:1.6;margin-bottom:.6rem">Based on processed payroll months of ${modFY}. Eligible: Basic up to â‚¹21,000 a month and at least one paid month. Use the higher of â‚¹7,000 or the Telangana minimum wage as the ceiling. Bonus is payable within 8 months of year end.</div>
+        ${rows.length ? `<div class="table-wrap"><table><thead><tr><th>Employee</th><th>Months paid</th><th>Bonus wage base</th><th>Bonus</th><th></th></tr></thead><tbody>${rows.map(r => `<tr><td>${empCell(r.e)}</td><td>${r.n}</td><td>${inr(r.base)}</td><td>${inr(r.done ? r.done.amount : r.amt)}</td><td>${r.done ? `<span class="dept-tag">Added to ${monthLabel(r.done.month)}</span>` : `<button class="btn btn-approve" onclick="addBonus('${r.e.id}',${r.amt})">Add to payroll</button>`}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty-state">No employee with Basic up to â‚¹21,000 and processed payroll in this year.</div>'}`;
+      return pcard('Statutory Bonus', body);
+    }
+    function addBonus(empId, amt) {
+      if (!isHR() || !modOn('bonus') || !amt) return;
+      if (mLocked(modMonth)) { showToast(monthLabel(modMonth) + ' payroll is already processed', 'error'); return; }
+      const l = getPayouts(); l.unshift({ id: uid(), empId, month: modMonth, kind: 'bonus', amount: amt, fy: modFY, note: 'Statutory bonus ' + modFY, at: new Date().toISOString() }); save(STORAGE_KEYS.payouts, l);
+      showToast('Bonus added to ' + monthLabel(modMonth) + ' payroll', 'success'); refreshCurrentPage();
+    }
+
+    // ---- Overtime
+    function otPanel() {
+      const emps = getEmployees().filter(e => e.status !== 'inactive'), list = getOT().filter(o => o.date.startsWith(modMonth)).sort((a, b) => b.date.localeCompare(a.date));
+      const body = `<div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin-bottom:.8rem"><input type="month" value="${modMonth}" onchange="setModMonth(this.value)" style="${mi}" /><select id="otEmp" style="${mi}">${empOpts(emps)}</select><input type="date" id="otDate" value="${localISO()}" style="${mi}" /><input type="number" id="otHrs" min="0.5" max="12" step="0.5" value="1" style="${mi};width:80px" /><span class="dept-tag">hours</span><button class="btn btn-primary" onclick="addOT()">Add overtime</button></div>
+        <div class="dept-tag" style="line-height:1.6;margin-bottom:.6rem">Rate = Basic Ã· 30 Ã· ${(officeCfg().dailyMin / 60).toFixed(2)} daily hours Ã— 2. Entries in the selected month are paid in that month's payroll.</div>
+        ${list.length ? `<div class="table-wrap"><table><thead><tr><th>Employee</th><th>Date</th><th>Hours</th><th>Rate / hr</th><th>Amount</th><th></th></tr></thead><tbody>${list.map(o => { const b = basicOf(o.empId), rt = otRate(b); return `<tr><td>${empCell(findEmployee(o.empId))}</td><td class="dept-tag">${formatDate(o.date)}</td><td>${o.hours}</td><td>${inr(rt)}</td><td>${inr(o.hours * rt)}</td><td><button class="btn btn-delete" onclick="delOT('${o.id}')">Delete</button></td></tr>`; }).join('')}</tbody></table></div>` : '<div class="empty-state">No overtime recorded for this month.</div>'}`;
+      return pcard('Overtime (double rate)', body);
+    }
+    function addOT() {
+      if (!isHR() || !modOn('ot')) return;
+      const empId = document.getElementById('otEmp').value, date = document.getElementById('otDate').value, hours = parseFloat(document.getElementById('otHrs').value);
+      if (!empId || !date || isNaN(hours) || hours < 0.5 || hours > 12) { showToast('Enter employee, date and 0.5 to 12 hours', 'error'); return; }
+      if (mLocked(date.slice(0, 7))) { showToast(monthLabel(date.slice(0, 7)) + ' payroll is already processed', 'error'); return; }
+      const l = getOT(); l.unshift({ id: uid(), empId, date, hours, by: (session && session.user) || 'admin' }); save(STORAGE_KEYS.otlog, l); modMonth = date.slice(0, 7); showToast('Overtime recorded', 'success'); refreshCurrentPage();
+    }
+    function delOT(id) { const o = getOT().find(x => x.id === id); if (!o || !isHR()) return; if (mLocked(o.date.slice(0, 7))) { showToast('Payroll for that month is processed', 'error'); return; } save(STORAGE_KEYS.otlog, getOT().filter(x => x.id !== id)); refreshCurrentPage(); }
+
+    // ---- Minimum wage check
+    function minWagePanel() {
+      const c = modCfg(), emps = getEmployees().filter(e => e.status !== 'inactive'), rows = emps.map(e => { const s = structure(getCTCs()[e.id] || 0); return { e, s, low: c.minWage > 0 && s.gross > 0 && s.gross < c.minWage }; });
+      const low = rows.filter(r => r.low).length;
+      const body = `<div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin-bottom:.8rem"><span class="dept-tag">Minimum wage per month â‚¹</span><input id="mcMin" type="number" min="0" value="${c.minWage || ''}" style="${mi};width:110px" /><button class="btn btn-secondary" onclick="saveModCfg()">Save</button></div>
+        <div class="dept-tag" style="line-height:1.6;margin-bottom:.6rem">Enter the current Telangana minimum wage for your scheduled employment and zone from the Labour Department notification (it changes with the variable dearness allowance). Gross monthly pay is compared against it.</div>
+        ${c.minWage > 0 ? `<div style="margin-bottom:.6rem;font-weight:600;color:${low ? '#dc2626' : '#16a34a'}">${low ? low + ' employee(s) below the minimum wage' : 'All employees at or above the minimum wage'}</div><div class="table-wrap"><table><thead><tr><th>Employee</th><th>Basic</th><th>Gross / month</th><th>Status</th></tr></thead><tbody>${rows.map(r => `<tr><td>${empCell(r.e)}</td><td>${inr(r.s.basic)}</td><td>${inr(r.s.gross)}</td><td>${r.s.gross ? (r.low ? '<span class="badge rejected">Below minimum</span>' : '<span class="badge approved">OK</span>') : '<span class="dept-tag">No CTC set</span>'}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty-state">Enter the minimum wage to run the check.</div>'}`;
+      return pcard('Minimum-wage check', body);
+    }
+
+    // ---- Leave encashment
+    function encashPanel() {
+      const emps = getEmployees().filter(e => e.status !== 'inactive'), list = getPayouts().filter(p => p.kind === 'encash').slice(0, 30);
+      const body = `<div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin-bottom:.8rem"><select id="enEmp" style="${mi}">${empOpts(emps)}</select><input type="number" id="enDays" min="0.5" step="0.5" value="1" style="${mi};width:80px" /><span class="dept-tag">days, pay in</span><input type="month" id="enMonth" value="${modMonth}" style="${mi}" /><button class="btn btn-primary" onclick="addEncash()">Add encashment</button></div>
+        <div class="dept-tag" style="line-height:1.6;margin-bottom:.6rem">Amount = Basic Ã· 30 Ã— days. Check the leave balance in your leave policy before adding.</div>
+        ${list.length ? `<div class="table-wrap"><table><thead><tr><th>Employee</th><th>Pay month</th><th>Days</th><th>Amount</th><th></th></tr></thead><tbody>${list.map(p => `<tr><td>${empCell(findEmployee(p.empId))}</td><td>${monthLabel(p.month)}</td><td>${p.days}</td><td>${inr(p.amount)}</td><td><button class="btn btn-delete" onclick="delPayout('${p.id}')">Delete</button></td></tr>`).join('')}</tbody></table></div>` : '<div class="empty-state">No leave encashment recorded.</div>'}`;
+      return pcard('Leave encashment', body);
+    }
+    function addEncash() {
+      if (!isHR() || !modOn('encash')) return;
+      const empId = document.getElementById('enEmp').value, days = parseFloat(document.getElementById('enDays').value), month = document.getElementById('enMonth').value, b = basicOf(empId);
+      if (!empId || isNaN(days) || days <= 0 || !/^\d{4}-\d{2}$/.test(month)) { showToast('Enter employee, days and month', 'error'); return; }
+      if (!b) { showToast('Set the employee CTC first', 'error'); return; }
+      if (mLocked(month)) { showToast(monthLabel(month) + ' payroll is already processed', 'error'); return; }
+      const l = getPayouts(); l.unshift({ id: uid(), empId, month, kind: 'encash', amount: Math.round(b / 30 * days), days, note: 'Leave encashment', at: new Date().toISOString() }); save(STORAGE_KEYS.payouts, l); modMonth = month; showToast('Leave encashment added', 'success'); refreshCurrentPage();
+    }
+    function delPayout(id) { const p = getPayouts().find(x => x.id === id); if (!p || !isHR()) return; if (mLocked(p.month)) { showToast('Payroll for that month is processed', 'error'); return; } save(STORAGE_KEYS.payouts, getPayouts().filter(x => x.id !== id)); refreshCurrentPage(); }
+
+    // ---- Full & Final settlement
+    const fnfEmps = () => getEmployees().filter(e => { const r = activeResignation(e.id); return e.status === 'inactive' || e.relievingDate || (r && r.status === 'accepted'); });
+    function fnfInputs() { const g = id => { const el = document.getElementById(id); return el ? el.value : ''; }; return { days: +g('fnDays') || 0, other: +g('fnOther') || 0, noticeDays: +g('fnNotice') || 0, recov: +g('fnRecov') || 0, tds: g('fnTds') === '' ? null : +g('fnTds') }; }
+    function fnfCalc(empId, v) {
+      const e = findEmployee(empId), r = activeResignation(empId), lwd = (r && (r.approvedLWD || r.lastWorkingDate)) || e.relievingDate || '', s = structure(getCTCs()[empId] || 0);
+      let y = 0, m = 0;
+      if (e.doj && lwd) { const a = new Date(e.doj), b = new Date(lwd); let tm = (b.getFullYear() - a.getFullYear()) * 12 + b.getMonth() - a.getMonth() - (b.getDate() < a.getDate() ? 1 : 0); tm = Math.max(0, tm); y = Math.floor(tm / 12); m = tm % 12; }
+      const grat = y >= 5 && s.basic ? Math.min(2000000, Math.round(s.basic / 26 * 15 * (y + (m >= 6 ? 1 : 0)))) : 0;
+      const leave = Math.round(s.basic / 30 * v.days), notice = Math.round(s.gross / 30 * v.noticeDays);
+      const taxable = v.other + Math.max(0, leave - 2500000) + Math.max(0, grat - 2000000);
+      const fy = lwd ? fyOf(lwd) : modFY, ytd = fyData(empId, fy).reduce((t, x) => t + (x.r.earned || 0) + (x.r.extra || 0), 0), base = Math.max(0, ytd - PAY.stdDeduction);
+      const tds = v.tds !== null ? v.tds : (taxable ? Math.max(0, newRegimeTax(base + taxable) - newRegimeTax(base)) : 0);
+      return { e, lwd, y, m, basic: s.basic, grat, leave, notice, other: v.other, recov: v.recov, tds, days: v.days, noticeDays: v.noticeDays, net: leave + grat + v.other - notice - v.recov - tds };
+    }
+    function fnfTable(c) {
+      const row = (a, b, neg) => `<tr><td>${a}</td><td class="num">${neg ? 'âˆ’ ' : ''}${inr(b)}</td></tr>`;
+      return `<table class="l-table"><thead><tr><th>Item</th><th class="num">Amount</th></tr></thead><tbody>${row(`Leave encashment (${c.days} day(s) Ã— Basic Ã· 30)`, c.leave)}${row('Gratuity' + (c.y >= 5 ? ` (Basic Ã· 26 Ã— 15 Ã— ${c.y + (c.m >= 6 ? 1 : 0)} yrs)` : ` (not payable: ${c.y} yr ${c.m} m service, needs 5 years)`), c.grat)}${row('Other earnings', c.other)}${row(`Notice-period shortfall recovery (${c.noticeDays} day(s))`, c.notice, 1)}${row('Other recoveries / dues', c.recov, 1)}${row('Income tax (TDS) on taxable part', c.tds, 1)}<tr class="tot"><td>NET FULL &amp; FINAL PAYABLE</td><td class="num">${inr(c.net)}</td></tr></tbody></table>`;
+    }
+    function fnfRefresh() { fnfEmp = document.getElementById('fnEmp').value; const o = document.getElementById('fnOut'); if (o) o.innerHTML = fnfEmp ? (findEmployee(fnfEmp) && !fnfCalc(fnfEmp, fnfInputs()).lwd ? '<div class="dept-tag">Set the last working date (resignation) or relieving date first.</div>' : fnfTable(fnfCalc(fnfEmp, fnfInputs()))) : ''; }
+    function fnfPanel() {
+      const emps = fnfEmps(), list = getFnf().slice(0, 20), inp = (id, ph, w = 100) => `<input id="${id}" type="number" min="0" placeholder="${ph}" oninput="fnfRefresh()" style="${mi};width:${w}px" />`;
+      if (fnfEmp && !emps.some(e => e.id === fnfEmp)) fnfEmp = '';
+      const body = `<div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin-bottom:.8rem"><select id="fnEmp" onchange="fnfRefresh()" style="${mi}"><option value="">Select exiting employee</option>${empOpts(emps, fnfEmp)}</select>${inp('fnDays', 'Leave days')}${inp('fnOther', 'Other earnings â‚¹', 120)}${inp('fnNotice', 'Notice shortfall days', 140)}${inp('fnRecov', 'Other dues â‚¹', 110)}${inp('fnTds', 'TDS â‚¹ (auto)', 110)}<button class="btn btn-primary" onclick="fnfSave()">Save settlement</button></div>
+        <div class="dept-tag" style="line-height:1.6;margin-bottom:.6rem">Salary up to the last working day is paid in the normal payroll run (pro-rata). Gratuity needs 5 years of continuous service (cap â‚¹20 lakh), leave encashment on resignation is exempt up to â‚¹25 lakh, and the TDS shown is an estimate you can overwrite.</div>
+        <div id="fnOut">${fnfEmp ? fnfTable(fnfCalc(fnfEmp, { days: 0, other: 0, noticeDays: 0, recov: 0, tds: null })) : ''}</div>
+        ${list.length ? `<div class="table-wrap" style="margin-top:1rem"><table><thead><tr><th>Employee</th><th>Last working day</th><th>Net payable</th><th>Status</th><th></th></tr></thead><tbody>${list.map(f => `<tr><td>${empCell(findEmployee(f.empId))}</td><td class="dept-tag">${formatDate(f.lwd)}</td><td>${inr(f.net)}</td><td><span class="badge ${f.paid ? 'approved' : 'pending'}">${f.paid ? 'Paid ' + formatDate(f.paidOn) : 'Pending'}</span></td><td><div class="btn-group" style="flex-wrap:nowrap"><button class="btn btn-secondary" onclick="fnfPrint('${f.id}')">Statement</button>${f.paid ? '' : `<button class="btn btn-approve" onclick="fnfPaid('${f.id}')">Mark paid</button>`}<button class="btn btn-delete" onclick="fnfDel('${f.id}')">Delete</button></div></td></tr>`).join('')}</tbody></table></div>` : ''}`;
+      return pcard('Full & Final settlement', body);
+    }
+    function fnfSave() {
+      if (!isHR() || !modOn('fnf')) return;
+      const id = document.getElementById('fnEmp').value; if (!id) { showToast('Select an employee', 'error'); return; }
+      const c = fnfCalc(id, fnfInputs()); if (!c.lwd) { showToast('Set the last working date or relieving date first', 'error'); return; }
+      const l = getFnf(); l.unshift({ id: uid(), empId: id, lwd: c.lwd, calc: { ...c, e: undefined }, net: c.net, paid: false, by: (session && session.user) || 'admin', at: new Date().toISOString() }); save(STORAGE_KEYS.fnf, l);
+      addActivity(`F&F settlement saved for <strong>${esc(c.e.name)}</strong>`, 'blue'); showToast('Settlement saved', 'success'); fnfEmp = ''; refreshCurrentPage();
+    }
+    function fnfPaid(id) { if (!isHR()) return; const l = getFnf(), f = l.find(x => x.id === id); if (!f) return; f.paid = true; f.paidOn = localISO(); save(STORAGE_KEYS.fnf, l); refreshCurrentPage(); }
+    function fnfDel(id) { if (!isHR() || !confirm('Delete this settlement?')) return; save(STORAGE_KEYS.fnf, getFnf().filter(x => x.id !== id)); refreshCurrentPage(); }
+    function fnfPrint(id) {
+      const f = getFnf().find(x => x.id === id); if (!f || !modOn('fnf') || !(isHR() || f.empId === session?.empId)) return;
+      const e = findEmployee(f.empId), c = { ...f.calc, e };
+      showDoc('Full & Final Settlement', `<p style="text-align:center;font-weight:700;margin:.4rem 0">FULL &amp; FINAL SETTLEMENT STATEMENT</p><p><strong>${esc(e.name)}</strong> (${esc(e.empCode || '')}) â€“ ${esc(e.role || '')}, ${esc(e.dept || '')}<br>Date of joining: ${formatDate(e.doj)} Â· Last working day: ${formatDate(f.lwd)} Â· Service: ${c.y} yr ${c.m} m<br>Last drawn Basic: ${inr(c.basic)}</p>${fnfTable(c)}<p class="l-note">${f.paid ? 'Paid on ' + formatDate(f.paidOn) + '. ' : ''}This is a computer-generated statement.</p>`);
+    }
+
+    // ---- Form 16 / 130 and 24Q / 138
+    const tdsForms = fy => +fy.slice(0, 4) >= 2026 ? ['Form 130', 'Form 138'] : ['Form 16', 'Form 24Q'];
+    function taxCert(empId, fy) {
+      const d = fyData(empId, fy), gross = d.reduce((t, x) => t + (x.r.earned || 0) + (x.r.extra || 0), 0), a = annualTaxFor(empId, fy, gross, structure(getCTCs()[empId] || 0));
+      return { d, gross, std: a.std, other: a.other, regime: a.regime, taxable: a.taxable, tax: a.tax, tds: d.reduce((t, x) => t + (x.r.tds || 0) + (x.r.tdsX || 0), 0) };
+    }
+    function viewTaxCert(empId, fy) {
+      if (!modOn('tds') || !(isHR() || empId === session?.empId)) return;
+      const e = findEmployee(empId), t = taxCert(empId, fy), t0 = (getStat()[empId] || {}), f = tdsForms(fy), row = (a, b) => `<tr><td>${a}</td><td class="num">${inr(b)}</td></tr>`;
+      if (!t.d.length) { showToast('No processed payroll for this year', 'error'); return; }
+      const q = [0, 1, 2, 3].map(i => t.d.filter(x => fyMonths(fy).indexOf(x.m) >= i * 3 && fyMonths(fy).indexOf(x.m) < i * 3 + 3).reduce((s, x) => s + (x.r.tds || 0) + (x.r.tdsX || 0), 0));
+      showDoc(f[0] + ' â€“ Part B working', `<p style="text-align:center;font-weight:700;margin:.4rem 0">${f[0].toUpperCase()} â€“ SALARY TDS WORKING (FY ${fy}) â€“ DRAFT</p><p><strong>${esc(e.name)}</strong> (${esc(e.empCode || '')}) Â· PAN: ${esc(t0.pan || 'â€”')}<br>Tax regime: ${t.regime}</p>
+        <table class="l-table"><thead><tr><th>Computation</th><th class="num">Amount</th></tr></thead><tbody>${row('Gross salary paid in the year', t.gross)}${row('Less: standard deduction', -t.std)}${t.other ? row('Less: HRA, deductions and PT (old regime, as declared)', -t.other) : ''}<tr class="tot"><td>Taxable income</td><td class="num">${inr(t.taxable)}</td></tr>${row('Tax on income incl. rebate, surcharge and 4% cess', t.tax)}${row('TDS deducted (sum of months)', t.tds)}<tr class="tot"><td>Tax payable / (refundable)</td><td class="num">${inr(t.tax - t.tds)}</td></tr></tbody></table>
+        <table class="l-table" style="margin-top:.6rem"><thead><tr><th>Month</th><th class="num">Salary paid</th><th class="num">TDS</th></tr></thead><tbody>${t.d.map(x => `<tr><td>${monthLabel(x.m)}</td><td class="num">${inr((x.r.earned || 0) + (x.r.extra || 0))}</td><td class="num">${inr((x.r.tds || 0) + (x.r.tdsX || 0))}</td></tr>`).join('')}</tbody></table>
+        <table class="l-table" style="margin-top:.6rem"><thead><tr><th>Quarter</th><th class="num">TDS deducted</th></tr></thead><tbody>${q.map((v, i) => row('Q' + (i + 1), v)).join('')}</tbody></table>
+        <p class="l-note">This is the salary and tax working. The official ${f[0]} (with TRACES receipt numbers of the quarterly ${f[1]} returns) is generated on TRACES only after you file the quarterly return. Issue it by 15 June after the year ends.</p>`);
+    }
+    function tdsCsv(fy, qn) {
+      if (!isHR() || !modOn('tds')) return;
+      const f = tdsForms(fy), months = fyMonths(fy).slice((qn - 1) * 3, qn * 3), st = getStat(), L = [[f[1] + ' data sheet', 'FY ' + fy, 'Q' + qn].map(csvq).join(',')];
+      L.push(['Annexure I â€“ month-wise deductee detail'].map(csvq).join(','), ['Month', 'Emp code', 'Name', 'PAN', 'Salary paid', 'TDS deducted'].map(csvq).join(','));
+      getEmployees().forEach(e => months.forEach(m => { const run = getPayruns()[m], r = run && (run.rows || []).find(x => x.empId === e.id); if (r && ((r.earned || 0) + (r.extra || 0) > 0 || (r.tds || 0) > 0)) L.push([monthLabel(m), e.empCode || '', e.name, (st[e.id] || {}).pan || '', (r.earned || 0) + (r.extra || 0), (r.tds || 0) + (r.tdsX || 0)].map(csvq).join(',')); }));
+      if (qn === 4) { L.push('', ['Annexure II â€“ annual salary details'].map(csvq).join(','), ['Emp code', 'Name', 'PAN', 'Gross salary', 'Standard deduction', 'Taxable income', 'Tax on income', 'TDS deducted'].map(csvq).join(',')); getEmployees().forEach(e => { const t = taxCert(e.id, fy); if (t.d.length) L.push([e.empCode || '', e.name, (st[e.id] || {}).pan || '', t.gross, t.std, t.taxable, t.tax, t.tds].map(csvq).join(',')); }); }
+      dl(`${f[1].replace(' ', '')}_${fy}_Q${qn}.csv`, L.join('\n'));
+    }
+    function tdsPanel() {
+      const emps = getEmployees().filter(e => e.status !== 'inactive'), f = tdsForms(modFY);
+      if (!tdsEmp || !emps.some(e => e.id === tdsEmp)) tdsEmp = emps[0] ? emps[0].id : '';
+      const body = `<div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin-bottom:.8rem">${mySel('mFY', fyList(), modFY, 'setModFY(this.value)')}<select id="tdsEmp" onchange="tdsEmp=this.value" style="${mi}">${empOpts(emps, tdsEmp)}</select><button class="btn btn-primary" onclick="viewTaxCert(document.getElementById('tdsEmp').value,modFY)">${f[0]} working</button></div>
+        <div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center">${[1, 2, 3, 4].map(q => `<button class="btn btn-secondary" onclick="tdsCsv(modFY,${q})">${f[1]} Q${q} data (CSV)</button>`).join('')}</div>
+        <div class="dept-tag" style="line-height:1.6;margin-top:.7rem">Return due dates: Q1 31 Jul Â· Q2 31 Oct Â· Q3 31 Jan Â· Q4 31 May. The app prepares the data; the return file (FVU) is created and filed through the NSDL / TIN utility, and the final certificate is downloaded from TRACES. Add PAN for every employee under Statutory details.</div>`;
+      return pcard('Form 16 / 130 and 24Q / 138', body);
+    }
+
+    // ---- pages
+    function renderStatMods() {
+      if (!isHR()) return '';
+      const m = getMods(), cards = MODS.map(([k, t, d]) => { const s = m[k] || {}; return `<div class="card" style="padding:1rem 1.1rem"><div style="display:flex;justify-content:space-between;gap:.5rem;align-items:flex-start"><strong>${t}</strong><span class="badge ${s.on ? 'approved' : 'inactive'}">${s.on ? 'Active' : 'Off'}</span></div><p class="dept-tag" style="line-height:1.55;margin:.5rem 0 .7rem">${d}</p><div class="dept-tag" style="margin-bottom:.6rem">${s.on ? 'Activated by ' + esc(s.by) + ' on ' + formatDate(s.at.slice(0, 10)) : (s.revokedAt ? 'Revoked by ' + esc(s.revokedBy) + ' on ' + formatDate(s.revokedAt.slice(0, 10)) : 'Not activated')}</div><button class="btn ${s.on ? 'btn-reject' : 'btn-primary'}" style="padding:.45rem .9rem" onclick="toggleMod('${k}',${!s.on})">${s.on ? 'Revoke' : 'Activate (admin login)'}</button></div>`; }).join('');
+      return `<div class="card"><div class="card-body" style="padding:1rem 1.25rem;line-height:1.7;font-size:.9rem">Every module is <strong>off</strong> until an administrator activates it with their username and password, and the same is needed to revoke it. While off, nothing changes in payroll and employees see nothing. When revoked, the module stops affecting unprocessed payroll months and its employee screens disappear. Processed payroll and saved records are kept.</div></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:1rem;margin-top:1.25rem">${cards}</div>
+        ${modOn('bonus') ? bonusPanel() : ''}${modOn('ot') ? otPanel() : ''}${modOn('minwage') ? minWagePanel() : ''}${modOn('encash') ? encashPanel() : ''}${modOn('fnf') ? fnfPanel() : ''}${modOn('arrears') ? arrearsPanel() : ''}${modOn('f12bb') ? declPanel() : ''}${modOn('registers') ? registersPanel() : ''}${modOn('tds') ? tdsPanel() : ''}`;
+    }
+    function renderMyStat() {
+      const id = session && session.empId; if (!id) return '';
+      const parts = [], mine = getPayouts().filter(p => p.empId === id && modOn(p.kind)), ot = modOn('ot') ? getOT().filter(o => o.empId === id) : [];
+      if (mine.length || ot.length) parts.push(pcard('Bonus, encashment and overtime', `<div class="table-wrap"><table><thead><tr><th>Type</th><th>Pay month</th><th>Details</th><th>Amount</th></tr></thead><tbody>${mine.map(p => `<tr><td>${{ bonus: 'Statutory bonus', encash: 'Leave encashment', arrears: 'Salary arrears' }[p.kind]}</td><td>${monthLabel(p.month)}</td><td class="dept-tag">${esc(p.note || '')}${p.days ? ' Â· ' + p.days + ' day(s)' : ''}</td><td>${inr(p.amount)}</td></tr>`).join('')}${ot.map(o => `<tr><td>Overtime</td><td>${monthLabel(o.date.slice(0, 7))}</td><td class="dept-tag">${formatDate(o.date)} Â· ${o.hours} h at 2x</td><td>${inr(o.hours * otRate(basicOf(id)))}</td></tr>`).join('')}</tbody></table></div>`));
+      if (modOn('tds')) { const ys = fyList().filter(fy => fyData(id, fy).length); parts.push(pcard('Salary TDS certificate', ys.length ? ys.map(fy => `<button class="btn btn-secondary" style="margin:.2rem" onclick="viewTaxCert('${id}','${fy}')">${tdsForms(fy)[0]} working â€“ FY ${fy}</button>`).join('') : '<div class="empty-state">No processed payroll yet.</div>')); }
+      if (modOn('f12bb')) { const fy = declFY(), d = getDecls()[id + '|' + fy]; parts.push(pcard('Form ' + (+fy.slice(0, 4) >= 2026 ? '124' : '12BB') + ' â€“ tax declaration (FY ' + fy + ')', `<div style="line-height:1.7;margin-bottom:.7rem">${d ? `Regime: <strong>${d.regime === 'old' ? 'Old' : 'New'}</strong> Â· Status: <strong>${d.status}</strong>` : 'No declaration submitted. TDS is deducted under the new regime.'}</div><button class="btn btn-primary" onclick="openDecl('${id}')">${d ? 'Update declaration' : 'Submit declaration'}</button>`)); }
+      const ff = modOn('fnf') ? getFnf().filter(f => f.empId === id) : [];
+      if (ff.length) parts.push(pcard('Full & Final settlement', ff.map(f => `<button class="btn btn-secondary" style="margin:.2rem" onclick="fnfPrint('${f.id}')">Statement â€“ ${formatDate(f.lwd)}</button>`).join('')));
+      return parts.join('') || '<div class="card"><div class="card-body"><div class="empty-state">Nothing to show yet.</div></div></div>';
+    }
+
+    // ========== ARREARS, FORM 124 / 12BB DECLARATIONS, STATUTORY REGISTERS ==========
+    const prevMonth = m => { const d = new Date(+m.slice(0, 4), +m.slice(5, 7) - 2, 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
+    let arrSel = null;
+    function arrCalc(empId, oldCtc, newCtc, from, to) {
+      const so = structure(oldCtc), sn = structure(newCtc), rows = []; let tot = 0, ded = 0;
+      for (let m = from; m <= to; m = nextMonthOf(m)) {
+        const run = getPayruns()[m], r = run && (run.rows || []).find(x => x.empId === empId);
+        if (!r || !(r.earned > 0)) { rows.push({ m, skip: true }); continue; }
+        const up = r.unpaidDays || 0, fr = (30 - Math.min(30, up)) / 30, eO = so.gross * fr, eN = sn.gross * fr, d = Math.round(eN - eO);
+        const dd = (statCalc(empId, m, sn, up, eN).eeEpf - statCalc(empId, m, so, up, eO).eeEpf) + ((statCalc(empId, m, sn, up, eN).esiEe || 0) - (statCalc(empId, m, so, up, eO).esiEe || 0));
+        rows.push({ m, days: 30 - up, oldG: Math.round(eO), newG: Math.round(eN), d, dd }); tot += d; ded += dd;
+      }
+      return { rows, tot, ded: Math.max(0, Math.round(ded)) };
+    }
+    function arrRead() { const g = id => document.getElementById(id); return { empId: g('arEmp').value, oldCtc: +g('arOld').value || 0, newCtc: +g('arNew').value || 0, from: g('arFrom').value, to: g('arTo').value }; }
+    function arrFill() { const id = document.getElementById('arEmp').value; document.getElementById('arNew').value = getCTCs()[id] || ''; arrRefresh(); }
+    function arrRefresh() {
+      const v = arrRead(), o = document.getElementById('arOut'); if (!o) return;
+      if (!v.empId || !v.oldCtc || !v.newCtc || !v.from || !v.to || v.to < v.from) { o.innerHTML = '<div class="dept-tag">Enter old and new annual CTC and the month range.</div>'; return; }
+      const c = arrCalc(v.empId, v.oldCtc, v.newCtc, v.from, v.to);
+      o.innerHTML = `<div class="table-wrap"><table><thead><tr><th>Month</th><th>Paid days</th><th>Old gross</th><th>New gross</th><th>Arrears</th><th>PF / ESI on it</th></tr></thead><tbody>${c.rows.map(r => r.skip ? `<tr><td>${monthLabel(r.m)}</td><td colspan="5" class="dept-tag">Payroll not processed for this employee, skipped</td></tr>` : `<tr><td>${monthLabel(r.m)}</td><td>${r.days}</td><td>${inr(r.oldG)}</td><td>${inr(r.newG)}</td><td>${inr(r.d)}</td><td>${inr(r.dd)}</td></tr>`).join('')}<tr class="tot"><td colspan="4">Total</td><td>${inr(c.tot)}</td><td>${inr(c.ded)}</td></tr></tbody></table></div><div class="dept-tag" style="margin-top:.4rem">Pay month ${monthLabel(modMonth)}. TDS on the lump sum is worked out when that month's payroll is calculated.</div>`;
+    }
+    function arrearsPanel() {
+      const emps = getEmployees().filter(e => e.status !== 'inactive'), cur = arrSel || (emps[0] && emps[0].id) || '', lastRun = Object.keys(getPayruns()).sort().pop() || modMonth;
+      const list = getPayouts().filter(p => p.kind === 'arrears').slice(0, 20);
+      const body = `<div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin-bottom:.8rem"><select id="arEmp" onchange="arrSel=this.value;arrFill()" style="${mi}">${empOpts(emps, cur)}</select><span class="dept-tag">Old CTC â‚¹</span><input id="arOld" type="number" min="0" oninput="arrRefresh()" style="${mi};width:110px" /><span class="dept-tag">New CTC â‚¹</span><input id="arNew" type="number" min="0" value="${getCTCs()[cur] || ''}" oninput="arrRefresh()" style="${mi};width:110px" /><span class="dept-tag">From</span><input id="arFrom" type="month" onchange="arrRefresh()" style="${mi}" /><span class="dept-tag">To</span><input id="arTo" type="month" value="${lastRun}" onchange="arrRefresh()" style="${mi}" /><span class="dept-tag">Pay in</span><input type="month" value="${modMonth}" onchange="setModMonth(this.value)" style="${mi}" /><button class="btn btn-primary" onclick="addArrears()">Add to payroll</button></div>
+        <div class="dept-tag" style="line-height:1.6;margin-bottom:.6rem">First update the employee's CTC to the new amount, then enter the old CTC here. The difference is worked out for each processed month in the range, in proportion to the days paid. Relief for arrears on tax (Section 89 type) is not calculated.</div>
+        <div id="arOut"><div class="dept-tag">Enter old and new annual CTC and the month range.</div></div>
+        ${list.length ? `<div class="table-wrap" style="margin-top:1rem"><table><thead><tr><th>Employee</th><th>Period</th><th>Arrears</th><th>PF / ESI</th><th>Pay month</th><th></th></tr></thead><tbody>${list.map(p => `<tr><td>${empCell(findEmployee(p.empId))}</td><td class="dept-tag">${monthLabel(p.from)} â€“ ${monthLabel(p.to)}</td><td>${inr(p.amount)}</td><td>${inr(p.ded || 0)}</td><td>${monthLabel(p.month)}</td><td><button class="btn btn-delete" onclick="delPayout('${p.id}')">Delete</button></td></tr>`).join('')}</tbody></table></div>` : ''}`;
+      return pcard('Salary arrears', body);
+    }
+    function addArrears() {
+      if (!isHR() || !modOn('arrears')) return;
+      const v = arrRead(); if (!v.empId || !v.oldCtc || !v.newCtc || !v.from || !v.to || v.to < v.from) { showToast('Fill all fields', 'error'); return; }
+      if (mLocked(modMonth)) { showToast(monthLabel(modMonth) + ' payroll is already processed', 'error'); return; }
+      if (getPayouts().some(p => p.kind === 'arrears' && p.empId === v.empId && p.from <= v.to && p.to >= v.from)) { showToast('Arrears already added for part of this period', 'error'); return; }
+      const c = arrCalc(v.empId, v.oldCtc, v.newCtc, v.from, v.to); if (c.tot <= 0) { showToast('No arrears payable for this range', 'error'); return; }
+      const l = getPayouts(); l.unshift({ id: uid(), empId: v.empId, month: modMonth, kind: 'arrears', amount: c.tot, ded: c.ded, from: v.from, to: v.to, oldCtc: v.oldCtc, newCtc: v.newCtc, note: 'Arrears ' + monthLabel(v.from) + ' to ' + monthLabel(v.to), at: new Date().toISOString() }); save(STORAGE_KEYS.payouts, l);
+      addActivity(`Arrears ${inr(c.tot)} added for <strong>${esc(findEmployee(v.empId)?.name)}</strong>`, 'blue'); showToast('Arrears added to ' + monthLabel(modMonth) + ' payroll', 'success'); refreshCurrentPage();
+    }
+
+    // ---- Form 124 (earlier 12BB) declarations
+    const declFY = () => fyOf(ISO(new Date()));
+    function declToggle() { document.getElementById('dcOld').style.display = document.getElementById('dcReg').value === 'old' ? '' : 'none'; }
+    function openDecl(empId, fy) {
+      if (!modOn('f12bb')) return;
+      fy = fy || declFY(); const emps = getEmployees().filter(e => isHR() ? e.status !== 'inactive' : e.id === session?.empId);
+      document.getElementById('declForm').reset(); document.getElementById('dcEmp').innerHTML = empOpts(emps, empId); document.getElementById('dcFy').value = fy;
+      const d = getDecls()[(empId || (emps[0] && emps[0].id)) + '|' + fy];
+      if (d) { const s = (id, v) => { document.getElementById(id).value = v ?? ''; }; s('dcReg', d.regime); s('dcRent', d.rent); s('dcCity', d.metro ? 'metro' : 'other'); s('dcLandlord', d.landlord); s('dcLPan', d.lpan); s('dcRel', d.rel || 'Not related'); s('dcInv', d.inv); s('dcMed', d.med); s('dcNps', d.nps); s('dcHome', d.home); }
+      declToggle(); document.getElementById('declTitle').textContent = 'Tax declaration â€“ Form ' + (+fy.slice(0, 4) >= 2026 ? '124' : '12BB') + ' (FY ' + fy + ')'; openModal('declModal');
+    }
+    function saveDecl(ev) {
+      ev.preventDefault(); if (!modOn('f12bb')) return;
+      const g = id => document.getElementById(id).value.trim(), n = id => Math.max(0, +g(id) || 0), empId = g('dcEmp'), fy = g('dcFy'), regime = g('dcReg');
+      if (!isHR() && empId !== session?.empId) return;
+      const d = { empId, fy, regime, status: isHR() ? 'approved' : 'submitted', at: new Date().toISOString(), by: isHR() ? ((session && session.user) || 'admin') : 'employee' };
+      if (regime === 'old') {
+        Object.assign(d, { rent: n('dcRent'), metro: g('dcCity') === 'metro', landlord: g('dcLandlord'), lpan: g('dcLPan').toUpperCase(), rel: g('dcRel'), inv: n('dcInv'), med: n('dcMed'), nps: n('dcNps'), home: n('dcHome') });
+        if (d.rent > 0 && !d.landlord) { showToast('Enter the landlord name', 'error'); return; }
+        if (d.rent * 12 > 100000 && !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(d.lpan)) { showToast('Landlord PAN is needed when rent is over â‚¹1 lakh a year', 'error'); return; }
+      }
+      const all = getDecls(); all[empId + '|' + fy] = d; save(STORAGE_KEYS.decl, all);
+      addActivity(`Tax declaration ${isHR() ? 'recorded' : 'submitted'} by <strong>${esc(findEmployee(empId)?.name)}</strong> (${regime} regime)`, 'blue'); showToast(isHR() ? 'Declaration saved and approved' : 'Declaration sent to HR', 'success'); closeModal('declModal'); refreshCurrentPage();
+    }
+    function declDecide(key, st) { if (!isHR()) return; const all = getDecls(); if (!all[key]) return; all[key].status = st; all[key].by = (session && session.user) || 'admin'; save(STORAGE_KEYS.decl, all); showToast('Declaration ' + st + (st === 'approved' ? '. TDS follows it from the next unprocessed month' : ''), 'success'); refreshCurrentPage(); }
+    function declPanel() {
+      const list = Object.entries(getDecls()).sort((a, b) => b[1].at.localeCompare(a[1].at)), emps = getEmployees().filter(e => e.status !== 'inactive');
+      const body = `<div style="margin-bottom:.8rem"><button class="btn btn-primary" onclick="openDecl()">+ Enter declaration</button> <span class="dept-tag">New regime is used for everyone until an old-regime declaration is approved.</span></div>
+        ${list.length ? `<div class="table-wrap"><table><thead><tr><th>Employee</th><th>Year</th><th>Regime</th><th>Rent / month</th><th>Investments</th><th>Health ins.</th><th>NPS</th><th>Home loan</th><th>Status</th><th></th></tr></thead><tbody>${list.map(([k, d]) => `<tr><td>${empCell(findEmployee(d.empId))}</td><td>${d.fy}</td><td>${d.regime === 'old' ? 'Old' : 'New'}</td><td>${d.regime === 'old' ? inr(d.rent || 0) : 'â€”'}</td><td>${d.regime === 'old' ? inr(d.inv || 0) : 'â€”'}</td><td>${d.regime === 'old' ? inr(d.med || 0) : 'â€”'}</td><td>${d.regime === 'old' ? inr(d.nps || 0) : 'â€”'}</td><td>${d.regime === 'old' ? inr(d.home || 0) : 'â€”'}</td><td><span class="badge ${d.status === 'approved' ? 'approved' : d.status === 'rejected' ? 'rejected' : 'pending'}">${d.status[0].toUpperCase() + d.status.slice(1)}</span></td><td><div class="btn-group" style="flex-wrap:nowrap">${d.status === 'submitted' ? `<button class="btn btn-approve" onclick="declDecide('${k}','approved')">Approve</button><button class="btn btn-reject" onclick="declDecide('${k}','rejected')">Reject</button>` : ''}<button class="btn btn-secondary" onclick="openDecl('${d.empId}','${d.fy}')">Edit</button></div></td></tr>`).join('')}</tbody></table></div>` : '<div class="empty-state">No declarations yet.</div>'}`;
+      return pcard('Form 124 (earlier 12BB) declarations', body);
+    }
+
+    // ---- Statutory registers
+    function musterData(month) {
+      const dim = new Date(+month.slice(0, 4), +month.slice(5, 7), 0).getDate(), att = getAttendance().filter(a => a.date && a.date.startsWith(month)), today = localISO();
+      const rows = getEmployees().filter(e => e.status !== 'inactive' || att.some(a => a.empId === e.id)).map(e => {
+        const codes = [];
+        for (let d = 1; d <= dim; d++) {
+          const iso = month + '-' + String(d).padStart(2, '0'), a = att.find(x => x.empId === e.id && x.date === iso); let c = '';
+          if (a) c = { present: 'P', late: 'P', absent: 'A', 'half-day': 'HD', leave: 'L', od: 'OD', holiday: 'H' }[a.status] || 'P';
+          else if (iso <= today) { const o = dayOffInfo(iso); c = o.off ? (o.kind === 'weekoff' ? 'WO' : 'H') : '-'; }
+          codes.push(c);
+        }
+        const n = c => codes.filter(x => x === c).length;
+        return { e, codes, present: n('P') + n('OD') + n('HD') * 0.5, leave: n('L'), absent: n('A') + n('HD') * 0.5, off: n('WO') + n('H') };
+      });
+      return { dim, rows };
+    }
+    function viewMuster(month) {
+      if (!isHR() || !modOn('registers')) return; const m = musterData(month);
+      showDoc('Muster roll', `<p style="text-align:center;font-weight:700;margin:.4rem 0">MUSTER ROLL (ATTENDANCE REGISTER) â€“ ${monthLabel(month).toUpperCase()}</p><div style="overflow-x:auto"><table class="l-table" style="font-size:9px"><thead><tr><th>#</th><th>Employee</th>${Array.from({ length: m.dim }, (_, i) => `<th>${i + 1}</th>`).join('')}<th>Pres.</th><th>Leave</th><th>Abs.</th><th>Off</th></tr></thead><tbody>${m.rows.map((r, i) => `<tr><td>${i + 1}</td><td style="white-space:nowrap">${esc(r.e.name)}</td>${r.codes.map(c => `<td>${c}</td>`).join('')}<td>${r.present}</td><td>${r.leave}</td><td>${r.absent}</td><td>${r.off}</td></tr>`).join('')}</tbody></table></div><p class="l-note">P present Â· A absent Â· HD half day Â· L leave Â· OD on duty Â· WO weekly off Â· H holiday Â· âˆ’ not marked</p>`);
+    }
+    function musterCsv(month) {
+      if (!isHR() || !modOn('registers')) return; const m = musterData(month);
+      dl(`Muster_Roll_${month}.csv`, [['Emp code', 'Name', ...Array.from({ length: m.dim }, (_, i) => i + 1), 'Present', 'Leave', 'Absent', 'Off'].map(csvq).join(','), ...m.rows.map(r => [r.e.empCode || '', r.e.name, ...r.codes, r.present, r.leave, r.absent, r.off].map(csvq).join(','))].join('\n'));
+    }
+    function wageData(month) {
+      const run = getPayruns()[month]; if (!run) return null;
+      return (run.rows || []).filter(r => (r.earned || 0) + (r.extra || 0) > 0).map(r => { const e = findEmployee(r.empId) || {}; const ded = (r.eeEpf || 0) + (r.esiEe || 0) + (r.pt || 0) + (r.tds || 0) + (r.tdsX || 0) + (r.lwfEe || 0) + (r.exArrDed || 0); return { e, r, days: 30 - (r.unpaidDays || 0), gross: (r.earned || 0) + (r.extra || 0), ded }; });
+    }
+    function viewWage(month) {
+      if (!isHR() || !modOn('registers')) return; const w = wageData(month);
+      if (!w) { showToast('Payroll for ' + monthLabel(month) + ' is not processed yet', 'error'); return; }
+      const t = k => w.reduce((s, x) => s + k(x), 0);
+      showDoc('Wage register', `<p style="text-align:center;font-weight:700;margin:.4rem 0">WAGE REGISTER â€“ ${monthLabel(month).toUpperCase()}</p><div style="overflow-x:auto"><table class="l-table" style="font-size:9px"><thead><tr><th>#</th><th>Employee</th><th>Days paid</th><th>Basic</th><th>HRA</th><th>Other allow.</th><th>Extras</th><th>Gross</th><th>PF</th><th>ESI</th><th>PT</th><th>TDS</th><th>Other</th><th>Net pay</th><th>Signature</th></tr></thead><tbody>${w.map((x, i) => `<tr><td>${i + 1}</td><td style="white-space:nowrap">${esc(x.e.name || x.r.name)}</td><td>${x.days}</td><td>${inr(x.r.basic)}</td><td>${inr(x.r.hra)}</td><td>${inr((x.r.conv || 0) + (x.r.special || 0))}</td><td>${inr(x.r.extra || 0)}</td><td>${inr(x.gross)}</td><td>${inr(x.r.eeEpf || 0)}</td><td>${inr(x.r.esiEe || 0)}</td><td>${inr(x.r.pt || 0)}</td><td>${inr((x.r.tds || 0) + (x.r.tdsX || 0))}</td><td>${inr((x.r.lwfEe || 0) + (x.r.exArrDed || 0))}</td><td>${inr(x.r.net)}</td><td style="min-width:60px"></td></tr>`).join('')}<tr class="tot"><td></td><td>Total</td><td></td><td>${inr(t(x => x.r.basic))}</td><td>${inr(t(x => x.r.hra))}</td><td>${inr(t(x => (x.r.conv || 0) + (x.r.special || 0)))}</td><td>${inr(t(x => x.r.extra || 0))}</td><td>${inr(t(x => x.gross))}</td><td>${inr(t(x => x.r.eeEpf || 0))}</td><td>${inr(t(x => x.r.esiEe || 0))}</td><td>${inr(t(x => x.r.pt || 0))}</td><td>${inr(t(x => (x.r.tds || 0) + (x.r.tdsX || 0)))}</td><td>${inr(t(x => (x.r.lwfEe || 0) + (x.r.exArrDed || 0)))}</td><td>${inr(t(x => x.r.net))}</td><td></td></tr></tbody></table></div><p class="l-note">Computed from the processed payroll of the month. Basic, HRA and allowances are full-month amounts; Gross is the amount earned after loss of pay plus extras.</p>`);
+    }
+    function wageCsv(month) {
+      if (!isHR() || !modOn('registers')) return; const w = wageData(month); if (!w) { showToast('Payroll for ' + monthLabel(month) + ' is not processed yet', 'error'); return; }
+      dl(`Wage_Register_${month}.csv`, [['Emp code', 'Name', 'Days paid', 'Basic', 'HRA', 'Other allowances', 'Extras', 'Gross', 'PF', 'ESI', 'PT', 'TDS', 'Other deductions', 'Total deductions', 'Net pay'].map(csvq).join(','), ...w.map(x => [x.e.empCode || '', x.e.name || x.r.name, x.days, x.r.basic, x.r.hra, (x.r.conv || 0) + (x.r.special || 0), x.r.extra || 0, x.gross, x.r.eeEpf || 0, x.r.esiEe || 0, x.r.pt || 0, (x.r.tds || 0) + (x.r.tdsX || 0), (x.r.lwfEe || 0) + (x.r.exArrDed || 0), x.ded, x.r.net].map(csvq).join(','))].join('\n'));
+    }
+    function registersPanel() {
+      const body = `<div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center"><input type="month" value="${modMonth}" onchange="setModMonth(this.value)" style="${mi}" /><button class="btn btn-primary" onclick="viewMuster(modMonth)">Muster roll</button><button class="btn btn-secondary" onclick="musterCsv(modMonth)">Muster roll CSV</button><button class="btn btn-primary" onclick="viewWage(modMonth)">Wage register</button><button class="btn btn-secondary" onclick="wageCsv(modMonth)">Wage register CSV</button></div>
+        <div class="dept-tag" style="line-height:1.6;margin-top:.7rem">The muster roll comes from Attendance (including OD, leave and holidays). The wage register comes from the processed payroll, so process the month first. Keep the printed, signed copies with your records for inspection.</div>`;
+      return pcard('Statutory registers', body);
+    }
+
+    // ========== NAVIGATION ==========
+    const pages = {
+      dashboard: { title: 'Dashboard', render: renderDashboard },
+      employees: { title: 'Employees', render: renderEmployees },
+      attendance: { title: 'Attendance', render: renderAttendance },
+      permissions: { title: 'Permissions (1 hr / 2 hr) & OD', render: renderPermissions },
+      myperm: { title: 'My Permissions & OD', render: renderMyPerm },
+      statmods: { title: 'Statutory Modules', render: renderStatMods },
+      mystat: { title: 'My Statutory Statements', render: renderMyStat },
+      leave: { title: 'Leave Management', render: renderLeave },
+      myleave: { title: 'My Leave Requests', render: renderMyLeave },
+      resign: { title: 'Resignations', render: renderResign },
+      myresign: { title: 'My Resignation', render: renderMyResign },
+      letters: { title: 'Letters', render: renderLetters },
+      myletters: { title: 'My Letters', render: renderMyLetters },
+      payroll: { title: 'Payroll', render: renderPayroll },
+      recruitment: { title: 'Recruitment', render: renderRecruitment },
+      performance: { title: 'Performance', render: renderPerformance },
+      myperf: { title: 'My Performance', render: renderMyPerf },
+      myatt: { title: 'My Attendance', render: renderMyAtt },
+      service: { title: 'Service Register', render: renderService },
+      access: { title: 'Menu Access', render: renderAccess },
+      noaccess: { title: 'My Account', render: () => '<div class="card"><div class="empty-state" style="padding:3rem 1rem">No menus have been assigned to your login yet.<br>Please contact HR.</div></div>' },
+      myservice: { title: 'My Service', render: renderMyService },
+      departments: { title: 'Departments', render: renderDepartments },
+      settings: { title: 'Settings', render: renderSettings },
+    };
+
+    function navigate(page, updateNav = true) {
+      if (!isHR() && !(EMP_PAGES.includes(page) && canMenu(page, session?.empId))) page = firstAllowed();
+      if (isHR() && EMP_PAGES.includes(page)) page = 'dashboard';
+      currentPage = page;
+      if (session) updateNavAccess();
+      const p = pages[page] || pages.dashboard;
+      document.getElementById('pageTitle').textContent = p.title;
+      document.getElementById('content').innerHTML = p.render();
+
+      if (updateNav) {
+        document.querySelectorAll('.nav-item').forEach(el => {
+          el.classList.toggle('active', el.dataset.page === page);
+        });
+      }
+
+      document.getElementById('sidebar').classList.remove('open');
+      document.getElementById('overlay').classList.remove('show');
+      updateLeaveBadge();
+    }
+
+    // ========== EVENTS ==========
+    document.querySelectorAll('.nav-item').forEach(item => {
+      item.addEventListener('click', e => {
+        e.preventDefault();
+        navigate(item.dataset.page);
+      });
+    });
+
+    document.getElementById('menuToggle').addEventListener('click', () => {
+      document.getElementById('sidebar').classList.toggle('open');
+      document.getElementById('overlay').classList.toggle('show');
+    });
+
+    document.getElementById('overlay').addEventListener('click', () => {
+      document.getElementById('sidebar').classList.remove('open');
+      document.getElementById('overlay').classList.remove('show');
+    });
+
+    // Close modals on backdrop click
+    ['perfModal', 'empModal', 'leaveModal', 'attModal', 'apptModal', 'letterModal', 'empImportModal'].forEach(id => {
+      document.getElementById(id).addEventListener('click', e => {
+        if (e.target.id === id) closeModal(id);
+      });
+    });
+
+    document.getElementById('searchInput').addEventListener('input', e => {
+      searchQuery = e.target.value;
+      if (currentPage === 'employees') refreshCurrentPage();
+    });
+
+    // Init
+    seedIfEmpty(); migrateEmployees(); migrateCTC();
+    document.getElementById('loginLogo').src = document.querySelector('.logo-img img').src;
+    document.querySelectorAll('img[data-logo]').forEach(i => i.src = document.querySelector('.logo-img img').src);
+    if (session) applyRole();
+    else { document.getElementById('loginScreen').classList.add('show'); showLastLogin(); }
+  </script>
+</body>
+</html>
