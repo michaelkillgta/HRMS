@@ -3,7 +3,7 @@ import Sidebar from '../components/Sidebar';
 
 export const metadata = {
   title: 'HRMS – Human Resource Management System',
-  description: 'R & A Associates HRMS with Face Recognition Attendance',
+  description: 'HRMS with Face Recognition Attendance',
   manifest: '/manifest.webmanifest',
 };
 

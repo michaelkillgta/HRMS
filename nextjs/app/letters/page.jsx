@@ -77,19 +77,19 @@ export default function LettersPage() {
               <div className="modal-body">
                 <div className="letter-paper">
                   <div className="lh">
-                    <div className="logo-icon logo-img">RA</div>
+                    <div className="logo-icon logo-img">HR</div>
                     <div>
-                      <div className="lh-name">R &amp; A ASSOCIATES</div>
-                      <div className="lh-sub">Company Secretaries &amp; Corporate Legal Advisors</div>
+                      <div className="lh-name">HRMS</div>
+                      <div className="lh-sub">Human Resource Management System</div>
                     </div>
                   </div>
                   <div className="l-meta">
-                    <div>Ref: RA/HR/2026/089</div>
+                    <div>Ref: HRMS/2026/089</div>
                     <div>Date: {selectedLetter.date}</div>
                   </div>
                   <p>Dear <strong>{selectedLetter.empName}</strong>,</p>
                   <p>
-                    We are pleased to issue your formal <strong>{selectedLetter.type}</strong> on behalf of R &amp; A Associates.
+                    We are pleased to issue your formal <strong>{selectedLetter.type}</strong> on behalf of HRMS.
                     Your dedication and commitment to the organisation are greatly appreciated.
                   </p>
                   <p>
@@ -97,7 +97,7 @@ export default function LettersPage() {
                   </p>
                   <div className="l-sign">
                     <p>Yours sincerely,</p>
-                    <p><strong>For R &amp; A Associates</strong></p>
+                    <p><strong>For HRMS</strong></p>
                     <div className="l-stamp">AUTHORIZED SIGNATORY</div>
                   </div>
                 </div>

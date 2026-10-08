@@ -1,4 +1,4 @@
-﻿
+
     // ========== SHARED DATA SYNC (used when served by server.js; ignored when opened as a plain file) ==========
     (function () {
       if (location.protocol === 'file:') return;
@@ -2443,7 +2443,8 @@
     }
 
     function letterHead() {
-      return `<div class="lh"><img src="${document.querySelector('.logo-img img').src}" alt="" /><div><div class="lh-name">R &amp; A Associates</div><div class="lh-sub">Human Resources Department</div></div></div>`;
+      const img = document.querySelector('.logo-img img');
+      return `<div class="lh">${img && img.src ? `<img src="${img.src}" alt="" />` : ''}<div><div class="lh-name">HRMS</div><div class="lh-sub">Human Resources Department</div></div></div>`;
     }
 
     function renderLetterBody(l) {
@@ -2451,7 +2452,7 @@
       const d = l.data;
       const nm = esc(e.name || 'Employee'), code = esc(e.empCode || '');
       const meta = `<div class="l-meta"><span>Ref: ${esc(l.refNo)}</span><span>Date: ${formatDate(l.date)}</span></div>`;
-      const toHR = `<p><strong>To,</strong><br>The HR Manager,<br>R &amp; A Associates.</p>`;
+      const toHR = `<p><strong>To,</strong><br>The HR Manager,<br>HRMS.</p>`;
       const fromEmp = `<div class="l-sign">Yours faithfully,<br><br><strong>${nm}</strong><br>${esc(e.role || '')}, ${esc(e.dept || '')}<br>Employee ID: ${code}</div>`;
       const period = `${d.days} day${d.days > 1 ? 's' : ''} from ${formatDate(d.from)} to ${formatDate(d.to)}`;
 
@@ -2459,7 +2460,7 @@
         <p><strong>To,</strong><br>${nm}<br>Employee ID: ${code}</p>
         <p><strong>Subject: Appointment Order â€“ ${esc(d.designation)}</strong></p>
         <p>Dear ${nm},</p>
-        <p>We are pleased to appoint you as <strong>${esc(d.designation)}</strong> in the <strong>${esc(d.dept)}</strong> department of R &amp; A Associates, with effect from <strong>${formatDate(d.doj)}</strong>, on the following terms and conditions:</p>
+        <p>We are pleased to appoint you as <strong>${esc(d.designation)}</strong> in the <strong>${esc(d.dept)}</strong> department of HRMS, with effect from <strong>${formatDate(d.doj)}</strong>, on the following terms and conditions:</p>
         <ol>
           <li><strong>Employee ID:</strong> ${code}.</li>
           <li><strong>Remuneration:</strong> ${d.ctc > 0 ? `Your annual Cost to Company (CTC) will be ${inr(d.ctc)}, structured as per the company's Standard Payroll Structure given in the Annexure, subject to statutory deductions.` : d.salary > 0 ? `Your monthly gross salary will be ${inr(d.salary)}, subject to statutory deductions.` : 'As per the company pay structure communicated separately.'}</li>
@@ -2469,8 +2470,8 @@
           <li><strong>Notice:</strong> Either party may end the employment by giving 30 days' written notice or salary in lieu thereof.</li>
         </ol>
         <p>Please sign in to the HRMS portal and accept this appointment order within 7 days of receipt.</p>
-        <p>We welcome you to R &amp; A Associates and wish you a successful career with us.</p>
-        <div class="l-sign">Yours sincerely,<br><br><strong>Authorised Signatory</strong><br>HR Department, R &amp; A Associates</div>
+        <p>We welcome you to HRMS and wish you a successful career with us.</p>
+        <div class="l-sign">Yours sincerely,<br><br><strong>Authorised Signatory</strong><br>HR Department, HRMS</div>
         ${d.ctc > 0 ? `<div class="l-annex"><p style="margin-top:1.5rem"><strong>Annexure â€“ Salary Structure</strong></p>${structureTable(d.ctc)}</div>` : ''}
         ${d.acceptedAt ? `<div class="l-stamp">Accepted electronically by ${nm} (${code}) on ${fmtDateTime(d.acceptedAt)}</div>` : ''}`;
 
@@ -2498,7 +2499,7 @@
         <p>Dear ${nm},</p>
         <p>With reference to your leave application dated ${formatDate(d.appliedOn)}, we are pleased to inform you that your <strong>${esc(d.leaveType)}</strong> for <strong>${period}</strong> has been <strong>approved</strong>.</p>
         <p>You are expected to resume duties on or after <strong>${formatDate(addDaysISO(d.to, 1))}</strong>. Please ensure that your work is handed over before you proceed on leave.</p>
-        <div class="l-sign">Yours sincerely,<br><br><strong>Authorised Signatory</strong><br>HR Department, R &amp; A Associates</div>`;
+        <div class="l-sign">Yours sincerely,<br><br><strong>Authorised Signatory</strong><br>HR Department, HRMS</div>`;
     }
 
     function viewLetter(id) {
@@ -2709,7 +2710,7 @@
       if (!emps.length) { showToast('No employees to export', 'error'); return; }
       loadPDF().then(() => {
         const doc = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
-        doc.setFontSize(15); doc.setTextColor(29, 29, 216); doc.text('R & A Associates', 40, 38);
+        doc.setFontSize(15); doc.setTextColor(29, 29, 216); doc.text('HRMS', 40, 38);
         doc.setFontSize(11); doc.setTextColor(30, 41, 59); doc.text('Employee List (' + emps.length + ')', 40, 56);
         doc.setFontSize(9); doc.setTextColor(100, 116, 139); doc.text('Generated ' + formatDate(new Date().toISOString()), 800, 56, { align: 'right' });
         doc.autoTable({
@@ -3123,7 +3124,7 @@
     const stat = (label, v, cls) => `<div class="stat-card"><div class="stat-info"><h3>${label}</h3><div class="value">${v}</div></div><div class="stat-icon ${cls}"></div></div>`;
 
     function perfModalShow(title, body, foot) {
-      document.getElementById('perfBox').innerHTML = `<div class="modal-header"><div class="mh-brand"><div><div class="mh-co">R &amp; A Associates</div><h3>${title}</h3></div></div><button class="modal-close" onclick="closeModal('perfModal')">âœ•</button></div><div class="modal-body">${body}</div><div class="modal-footer">${foot}</div>`;
+      document.getElementById('perfBox').innerHTML = `<div class="modal-header"><div class="mh-brand"><div><div class="mh-co">HRMS</div><h3>${title}</h3></div></div><button class="modal-close" onclick="closeModal('perfModal')">âœ•</button></div><div class="modal-body">${body}</div><div class="modal-footer">${foot}</div>`;
       openModal('perfModal');
     }
     const rateGrid = (p, vals = []) => PERF_COMP.map((c, i) => `<div class="form-group"><label>${c}</label><select id="${p}${i}">${PERF_SCALE.map((s, v) => `<option value="${v || ''}" ${vals[i] === v && v ? 'selected' : ''}>${s || 'Select rating'}</option>`).join('')}</select></div>`).join('');
@@ -3396,7 +3397,7 @@
     // ========== GREETING POPUPS (festivals, birthdays, achievements) ==========
     const POPUP_IDEAS = ['Happy Independence Day', 'Happy Republic Day', 'Happy Gandhi Jayanti', 'Happy Vijaya Dashami', 'Happy Diwali', 'Happy Holi', 'Happy New Year', 'Happy Ganesh Chaturthi', 'Happy Eid', 'Merry Christmas', 'Happy Sankranti', 'Happy Ugadi'];
     const ACHIEVE_IDEAS = ['Passed CS Executive Exam', 'Passed CS Professional Exam', 'Became ACS / FCS Member', 'Passed LLB / LLM', 'Passed CA Exam', 'Best Performer Award', 'Employee of the Month', 'Work Anniversary', 'Promotion', 'Certification Completed'];
-    const BDAY_MSG = 'Wishing you a very Happy Birthday! May this year bring you success, good health and happiness. â€“ R & A Associates';
+    const BDAY_MSG = 'Wishing you a very Happy Birthday! May this year bring you success, good health and happiness. – HRMS';
     const POP_KINDS = { festival: 'Festival / Special Day', birthday: 'Birthday Wishes', achievement: 'Achievement / Congratulations' };
     let popupImg = '', popupQueue = [];
     const getPopups = () => load(STORAGE_KEYS.popups) || [];
@@ -4650,10 +4651,11 @@
 
     // Init
     seedIfEmpty(); migrateEmployees(); migrateCTC();
-    document.getElementById('loginLogo').src = document.querySelector('.logo-img img').src;
-    document.querySelectorAll('img[data-logo]').forEach(i => i.src = document.querySelector('.logo-img img').src);
+    const _logoImg = document.querySelector('.logo-img img');
+    if (_logoImg && _logoImg.src) {
+      const _lLogo = document.getElementById('loginLogo');
+      if (_lLogo) _lLogo.src = _logoImg.src;
+      document.querySelectorAll('img[data-logo]').forEach(i => i.src = _logoImg.src);
+    }
     if (session) applyRole();
-    else { document.getElementById('loginScreen').classList.add('show'); showLastLogin(); }
-  </script>
-</body>
-</html>
+    else { document.getElementById('loginScreen')?.classList.add('show'); showLastLogin(); }
