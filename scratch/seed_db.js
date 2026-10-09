@@ -148,44 +148,68 @@ const employees = [
 const leaves = [
   {
     id: "lv_001",
-    empId: "emp_001",
-    type: "Casual Leave",
-    from: "2026-10-12",
-    to: "2026-10-13",
+    empId: "emp_004",
+    type: "Sick Leave",
+    from: "2026-10-09",
+    to: "2026-10-10",
     days: 2,
-    reason: "Personal family event",
-    status: "approved",
+    reason: "Viral fever and doctor consultation",
+    status: "pending",
     createdAt: new Date().toISOString()
   },
   {
     id: "lv_002",
-    empId: "emp_004",
-    type: "Sick Leave",
-    from: "2026-10-08",
-    to: "2026-10-09",
+    empId: "emp_007",
+    type: "Casual Leave",
+    from: "2026-10-14",
+    to: "2026-10-15",
     days: 2,
-    reason: "Viral fever",
-    status: "pending",
+    reason: "Family function",
+    status: "approved",
     createdAt: new Date().toISOString()
   }
 ];
 
-const today = new Date().toISOString().slice(0, 10);
-const attendance = [
-  { id: "att_001", empId: "emp_001", date: today, inTime: "09:12", outTime: "18:05", status: "present", method: "face" },
-  { id: "att_002", empId: "emp_002", date: today, inTime: "09:05", outTime: "18:15", status: "present", method: "manual" },
-  { id: "att_003", empId: "emp_003", date: today, inTime: "09:28", outTime: "", status: "present", method: "face" },
-  { id: "att_004", empId: "emp_004", date: today, inTime: "", outTime: "", status: "on-leave", method: "leave" },
-  { id: "att_005", empId: "emp_005", date: today, inTime: "08:55", outTime: "17:50", status: "present", method: "face" },
-  { id: "att_006", empId: "emp_006", date: today, inTime: "09:18", outTime: "18:02", status: "present", method: "manual" },
-  { id: "att_007", empId: "emp_007", date: today, inTime: "09:40", outTime: "", status: "present", method: "face" },
-  { id: "att_008", empId: "emp_008", date: today, inTime: "09:02", outTime: "18:10", status: "present", method: "face" }
-];
+// Generate last 7 days of attendance
+const attendance = [];
+const dates = [];
+for (let i = 6; i >= 0; i--) {
+  const d = new Date(Date.now() - i * 86400000);
+  dates.push(d.toISOString().slice(0, 10));
+}
+
+dates.forEach((d, dIdx) => {
+  // emp_001: Rajesh - Always present, biometric face
+  attendance.push({ id: `att_001_${d}`, empId: "emp_001", date: d, inTime: "09:12", outTime: "18:05", status: "present", method: "face" });
+  // emp_002: Priya - Present on time
+  attendance.push({ id: `att_002_${d}`, empId: "emp_002", date: d, inTime: "09:05", outTime: "18:15", status: "present", method: "manual" });
+  // emp_003: Amit - Present (Engineering lead)
+  attendance.push({ id: `att_003_${d}`, empId: "emp_003", date: d, inTime: "09:28", outTime: "18:30", status: "present", method: "face" });
+  // emp_004: Sneha - On leave today (Sick Leave), present on other days
+  if (dIdx === dates.length - 1) {
+    attendance.push({ id: `att_004_${d}`, empId: "emp_004", date: d, inTime: "", outTime: "", status: "leave", method: "leave" });
+  } else {
+    attendance.push({ id: `att_004_${d}`, empId: "emp_004", date: d, inTime: "09:45", outTime: "18:00", status: "late", method: "face" });
+  }
+  // emp_005: Vikram - Finance head, present early
+  attendance.push({ id: `att_005_${d}`, empId: "emp_005", date: d, inTime: "08:55", outTime: "17:50", status: "present", method: "face" });
+  // emp_006: Ananya - Legal Advisor, on-duty occasionally
+  if (dIdx % 3 === 0) {
+    attendance.push({ id: `att_006_${d}`, empId: "emp_006", date: d, inTime: "10:00", outTime: "17:30", status: "od", method: "od" });
+  } else {
+    attendance.push({ id: `att_006_${d}`, empId: "emp_006", date: d, inTime: "09:18", outTime: "18:02", status: "present", method: "manual" });
+  }
+  // emp_007: Rahul - Marketing
+  attendance.push({ id: `att_007_${d}`, empId: "emp_007", date: d, inTime: "09:40", outTime: "18:10", status: "late", method: "face" });
+  // emp_008: Pooja - Operations, on time
+  attendance.push({ id: `att_008_${d}`, empId: "emp_008", date: d, inTime: "09:02", outTime: "18:10", status: "present", method: "face" });
+});
 
 const activities = [
-  { id: "act_001", text: "HRMS database initialized successfully", time: new Date().toISOString(), color: "green" },
-  { id: "act_002", text: "Rajesh Sharma checked in via Biometric Face Recognition", time: new Date(Date.now() - 3600000).toISOString(), color: "blue" },
-  { id: "act_003", text: "Sneha Reddy submitted Sick Leave request", time: new Date(Date.now() - 7200000).toISOString(), color: "yellow" }
+  { id: "act_001", text: "Rajesh Sharma checked in via Biometric Face Recognition (09:12 AM)", time: new Date(Date.now() - 3600000).toISOString(), color: "green" },
+  { id: "act_002", text: "Priya Patel confirmed October Leave Policy guidelines", time: new Date(Date.now() - 7200000).toISOString(), color: "blue" },
+  { id: "act_003", text: "Sneha Reddy submitted Sick Leave request (Awaiting HR approval)", time: new Date(Date.now() - 10800000).toISOString(), color: "yellow" },
+  { id: "act_004", text: "Biometric Attendance Device #1 synced 8 staff records successfully", time: new Date(Date.now() - 14400000).toISOString(), color: "green" }
 ];
 
 const state = {
@@ -193,9 +217,19 @@ const state = {
   hrms_leaves: JSON.stringify(leaves),
   hrms_attendance: JSON.stringify(attendance),
   hrms_activities: JSON.stringify(activities),
-  hrms_departments: JSON.stringify(["Engineering", "Human Resources", "Finance", "Legal & Compliance", "Marketing", "Operations"])
+  hrms_departments: JSON.stringify(["Engineering", "Human Resources", "Finance", "Legal & Compliance", "Marketing", "Operations"]),
+  hrms_ctc: JSON.stringify({
+    emp_001: 1200000,
+    emp_002: 1050000,
+    emp_003: 1550000,
+    emp_004: 920000,
+    emp_005: 1800000,
+    emp_006: 1150000,
+    emp_007: 1000000,
+    emp_008: 700000
+  })
 };
 
 const dbFile = path.join(dataDir, 'data.json');
 fs.writeFileSync(dbFile, JSON.stringify(state, null, 2), 'utf8');
-console.log('Seeded state written to:', dbFile);
+console.log('Seeded database written to:', dbFile, 'with 7 days of attendance!');

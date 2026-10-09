@@ -165,7 +165,7 @@
     }
 
     function formatDate(iso) {
-      if (!iso) return 'â€”';
+      if (!iso) return '—';
       const d = new Date(iso);
       return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
     }
@@ -479,7 +479,7 @@
 
     function officeSummaryLine() {
       const o = officeCfg();
-      return `${to12h(o.open)} â€“ ${to12h(o.close)}, lunch ${to12h(o.lunchStart)} â€“ ${to12h(o.lunchEnd)}, late after ${to12h(minToHM(o.openMin + o.grace))}, early out before ${to12h(minToHM(o.closeMin - o.grace))}, half day below ${o.half} h`;
+      return `${to12h(o.open)} — ${to12h(o.close)}, lunch ${to12h(o.lunchStart)} — ${to12h(o.lunchEnd)}, late after ${to12h(minToHM(o.openMin + o.grace))}, early out before ${to12h(minToHM(o.closeMin - o.grace))}, half day below ${o.half} h`;
     }
 
     function renderOfficeCard() {
@@ -516,7 +516,7 @@
             </div>
             <div class="btn-group">
               <button class="btn btn-primary" onclick="saveOffice()">Save Timings</button>
-              <button class="btn btn-secondary" onclick="resetOffice()">Reset to 9:30 AM â€“ 6:30 PM</button>
+              <button class="btn btn-secondary" onclick="resetOffice()">Reset to 9:30 AM — 6:30 PM</button>
             </div>
             <p class="dept-tag" style="margin-top:.9rem; line-height:1.6">Used for Late / Half Day / Early out on the Attendance page, the eSSL import and the Mark Attendance form. Hours worked exclude the lunch break.</p>
           </div>
@@ -565,8 +565,8 @@
       const w = weekoffCfg(), dow = d.getDay();
       const h = holidayOn(iso);
       if (h && h.type !== 'optional') return { off: true, kind: h.type, label: h.name + ' (' + HOL_TYPES[h.type] + ' Holiday)' };
-      if (dow === 0 && w.sunday) return { off: true, kind: 'weekoff', label: 'Sunday â€“ Weekly Off' };
-      if (dow === 6 && w.sats.includes(Math.ceil(d.getDate() / 7))) return { off: true, kind: 'weekoff', label: ordinal(Math.ceil(d.getDate() / 7)) + ' Saturday â€“ Weekly Off' };
+      if (dow === 0 && w.sunday) return { off: true, kind: 'weekoff', label: 'Sunday — Weekly Off' };
+      if (dow === 6 && w.sats.includes(Math.ceil(d.getDate() / 7))) return { off: true, kind: 'weekoff', label: ordinal(Math.ceil(d.getDate() / 7)) + ' Saturday — Weekly Off' };
       if (h) return { off: false, kind: 'optional', label: h.name + ' (Optional Holiday)' };
       return { off: false, kind: '', label: '' };
     }
@@ -696,14 +696,14 @@
       const hint = document.getElementById('attHint');
       if (info.off) {
         sel.value = 'holiday';
-        hint.innerHTML = '<span style="color:#475569">' + esc(info.label) + ' â€“ marked as Holiday. Change the status only if the employee actually worked.</span>';
+        hint.innerHTML = '<span style="color:#475569">' + esc(info.label) + ' — marked as Holiday. Change the status only if the employee actually worked.</span>';
       } else {
         if (sel.value === 'holiday') sel.value = 'present';
         // Default: Present, In = office opening, Out = office closing
         const o = officeCfg(), inEl = document.getElementById('attIn'), outEl = document.getElementById('attOut');
         if (!inEl.value) inEl.value = o.open;
         if (!outEl.value) outEl.value = o.close;
-        if (info.kind === 'optional') hint.textContent = info.label + ' â€“ working day unless the employee opted for it.';
+        if (info.kind === 'optional') hint.textContent = info.label + ' — working day unless the employee opted for it.';
         else attSuggest();
       }
       const hol = sel.value === 'holiday';
@@ -856,7 +856,7 @@
         if (!t.length) {
           if (/^(A|ABS|ABSENT)$/.test(sc)) status = 'absent';
           else if (/^(P|PRESENT)$/.test(sc)) { status = 'present'; note = 'No times in file'; }
-          else if (/^(HD|Â½P|0\.5|HALF)/.test(sc)) status = 'half-day';
+          else if (/^(HD|½P|0\.5|HALF)/.test(sc)) status = 'half-day';
           else return;
         } else {
           const a = t[0], b = t[t.length - 1];
@@ -898,7 +898,7 @@
           (Present ${cnt.present}, Late ${cnt.late}, Half Day ${cnt['half-day']}, Absent ${cnt.absent}).
           ${overwrites ? `<br><span style="color:#d97706;">${overwrites} will replace existing records for the same employee and date.</span>` : ''}
           ${rowsBad ? `<br><span style="color:#64748b;">${rowsBad} rows skipped (no readable date or employee code).</span>` : ''}
-          ${um.length ? `<br><span style="color:#dc2626;">Not matched to any employee (${um.length}): ${um.slice(0, 12).map(esc).join(', ')}${um.length > 12 ? ' â€¦' : ''}. Add or correct their Employee ID and re-import.</span>` : ''}
+          ${um.length ? `<br><span style="color:#dc2626;">Not matched to any employee (${um.length}): ${um.slice(0, 12).map(esc).join(', ')}${um.length > 12 ? ' —¦' : ''}. Add or correct their Employee ID and re-import.</span>` : ''}
         </div>`;
       const badge = { present: 'active', absent: 'inactive', 'half-day': 'probation', late: 'on-leave' };
       const label = { present: 'Present', absent: 'Absent', 'half-day': 'Half Day', late: 'Late' };
@@ -907,7 +907,7 @@
           <thead><tr><th>Date</th><th>Employee</th><th>In</th><th>Out</th><th>Status</th><th>Note</th></tr></thead>
           <tbody>${out.slice(0, 300).map(r => `
             <tr><td>${formatDate(r.date)}</td><td>${esc(r.name)} <span class="dept-tag">${esc(r.code || '')}</span></td>
-            <td>${r.inTime || 'â€”'}</td><td>${r.outTime || 'â€”'}</td>
+            <td>${r.inTime || '—'}</td><td>${r.outTime || '—'}</td>
             <td><span class="badge ${badge[r.status]}">${label[r.status]}</span></td><td class="dept-tag">${esc(r.note)}</td></tr>`).join('')}
           </tbody>
         </table>${out.length > 300 ? `<div class="dept-tag" style="padding:.5rem;">Showing first 300 of ${out.length}. All will be imported.</div>` : ''}`
@@ -981,12 +981,12 @@
     function attSuggest() {
       const a = hmToMin(document.getElementById('attIn').value), bRaw = document.getElementById('attOut').value, b = hmToMin(bRaw);
       const hint = document.getElementById('attHint');
-      if (a == null) { hint.textContent = 'Office hours: ' + to12h(officeCfg().open) + ' â€“ ' + to12h(officeCfg().close) + ', lunch ' + to12h(officeCfg().lunchStart) + ' â€“ ' + to12h(officeCfg().lunchEnd) + '.'; return; }
+      if (a == null) { hint.textContent = 'Office hours: ' + to12h(officeCfg().open) + ' — ' + to12h(officeCfg().close) + ', lunch ' + to12h(officeCfg().lunchStart) + ' — ' + to12h(officeCfg().lunchEnd) + '.'; return; }
       if (b != null && b < a) { hint.textContent = 'Out time is earlier than In time.'; return; }
       const r = officeClassify(a, b);
       const sel = document.getElementById('attStatus');
       if (['present', 'late', 'half-day'].includes(sel.value)) sel.value = r.status;
-      hint.textContent = 'Suggested: ' + ATT_STATUSES.find(([v]) => v === r.status)[1] + (r.note && b != null ? ' (' + r.note + ')' : '') + (b != null ? ' Â· Worked ' + fmtDur(officeNetMin(a, b)) + ' excl. lunch' : '');
+      hint.textContent = 'Suggested: ' + ATT_STATUSES.find(([v]) => v === r.status)[1] + (r.note && b != null ? ' (' + r.note + ')' : '') + (b != null ? ' · Worked ' + fmtDur(officeNetMin(a, b)) + ' excl. lunch' : '');
     }
 
     function saveAttendance(ev) {
@@ -1047,9 +1047,9 @@
     function permLopDays(empId, month) { const dh = officeCfg().dailyMin / 60; return dh > 0 ? +(permMonth(empId, month).excess / dh).toFixed(2) : 0; }
 
     function attExtra(empId, date, a) {
-      const od = a && a.od ? `<div><span class="badge od">OD</span> ${esc(a.od.type)} Â· ${esc(a.od.place)}${a.od.dur === 'half' ? ' (Half day)' : ''}${a.od.purpose ? ' Â· ' + esc(a.od.purpose) : ''}</div>` : '';
-      const pm = permsOn(empId, date).map(x => `<div><span class="badge ${x.status === 'approved' ? 'probation' : 'pending'}">Perm ${x.hours}h</span> ${to12h(x.from)}â€“${to12h(x.to)}${x.status === 'pending' ? ' (pending)' : ''}</div>`).join('');
-      return (od + pm) || 'â€”';
+      const od = a && a.od ? `<div><span class="badge od">OD</span> ${esc(a.od.type)} · ${esc(a.od.place)}${a.od.dur === 'half' ? ' (Half day)' : ''}${a.od.purpose ? ' · ' + esc(a.od.purpose) : ''}</div>` : '';
+      const pm = permsOn(empId, date).map(x => `<div><span class="badge ${x.status === 'approved' ? 'probation' : 'pending'}">Perm ${x.hours}h</span> ${to12h(x.from)}—${to12h(x.to)}${x.status === 'pending' ? ' (pending)' : ''}</div>`).join('');
+      return (od + pm) || '—';
     }
 
     let permViewMonth = ISO(new Date()).slice(0, 7);
@@ -1058,7 +1058,7 @@
     function openPermModal() {
       document.getElementById('permForm').reset();
       document.getElementById('permEmp').innerHTML = getEmployees().filter(e => isHR() ? e.status !== 'inactive' : e.id === session?.empId)
-        .map(e => `<option value="${e.id}">${esc(e.empCode ? e.empCode + ' â€“ ' : '')}${esc(e.name)}</option>`).join('');
+        .map(e => `<option value="${e.id}">${esc(e.empCode ? e.empCode + ' — ' : '')}${esc(e.name)}</option>`).join('');
       document.getElementById('permDate').value = localISO();
       document.getElementById('permFrom').value = officeCfg().lunchEnd;
       permHint();
@@ -1069,8 +1069,8 @@
       const a = hmToMin(g('permFrom')), h = +g('permHours'), empId = g('permEmp'), date = g('permDate');
       if (a == null || !empId || !date) { hint.textContent = ''; return; }
       const m = permMonth(empId, date.slice(0, 7)), q = m.quota, add = Math.max(0, m.used + h - q) - Math.max(0, m.used - q);
-      hint.innerHTML = `Out ${to12h(minToHM(a))} â†’ back by ${to12h(minToHM(a + h * 60))}. This month: ${m.used}h of ${q}h quota used.` +
-        (add > 0 ? ` <strong style="color:#dc2626">${add}h will be excess â†’ ${(add / (officeCfg().dailyMin / 60)).toFixed(2)} day LOP.</strong>` : ' Within quota (no deduction).');
+      hint.innerHTML = `Out ${to12h(minToHM(a))} → back by ${to12h(minToHM(a + h * 60))}. This month: ${m.used}h of ${q}h quota used.` +
+        (add > 0 ? ` <strong style="color:#dc2626">${add}h will be excess → ${(add / (officeCfg().dailyMin / 60)).toFixed(2)} day LOP.</strong>` : ' Within quota (no deduction).');
     }
     function savePerm(ev) {
       ev.preventDefault();
@@ -1078,7 +1078,7 @@
       const empId = g('permEmp'), date = g('permDate'), hours = +g('permHours'), from = g('permFrom'), purpose = g('permPurpose'), place = g('permPlace');
       const a = hmToMin(from), b = a == null ? null : a + hours * 60, err = m => showToast(m, 'error');
       if (!empId || a == null || !purpose) return err('Fill employee, date, time and reason');
-      if (a < o.openMin || b > o.closeMin) return err('Permission must be within office hours (' + to12h(o.open) + ' â€“ ' + to12h(o.close) + ')');
+      if (a < o.openMin || b > o.closeMin) return err('Permission must be within office hours (' + to12h(o.open) + ' — ' + to12h(o.close) + ')');
       if (dayOffInfo(date).off) return err('That day is a holiday / week-off');
       if (!isHR() && date < localISO()) return err('Past-date permission can only be added by HR');
       if (getLeaves().some(l => l.empId === empId && l.status === 'approved' && l.from <= date && date <= l.to)) return err('Employee is on approved leave that day');
@@ -1125,11 +1125,11 @@
 
     function permTable(list, rowMap, hr) {
       if (!list.length) return '<div class="empty-state">No permission records for this month.</div>';
-      return `<table><thead><tr><th>Employee</th><th>Date</th><th>Out â€“ In</th><th>Hrs</th><th>Place / Reason</th><th>Returned</th><th>Counts as</th><th>Status</th><th>${hr ? 'Actions' : ''}</th></tr></thead><tbody>${list.map(p => {
+      return `<table><thead><tr><th>Employee</th><th>Date</th><th>Out — In</th><th>Hrs</th><th>Place / Reason</th><th>Returned</th><th>Counts as</th><th>Status</th><th>${hr ? 'Actions' : ''}</th></tr></thead><tbody>${list.map(p => {
         const e = findEmployee(p.empId), r = rowMap[p.id];
-        const cnt = p.status !== 'approved' ? 'â€”' : (r && r.excess > 0 ? `<span style="color:#dc2626">Excess ${r.excess}h (LOP)</span>` : 'Within quota');
+        const cnt = p.status !== 'approved' ? '—' : (r && r.excess > 0 ? `<span style="color:#dc2626">Excess ${r.excess}h (LOP)</span>` : 'Within quota');
         const act = hr ? `<div class="btn-group" style="flex-wrap:nowrap">${p.status === 'pending' ? `<button class="btn btn-approve" onclick="permDecide('${p.id}','approved')">Approve</button><button class="btn btn-reject" onclick="permDecide('${p.id}','rejected')">Reject</button>` : ''}${p.status === 'approved' ? `<button class="btn btn-secondary" onclick="permReturn('${p.id}')">Set return</button>` : ''}<button class="btn btn-delete" onclick="permDelete('${p.id}')">Delete</button></div>` : '';
-        return `<tr><td>${empCell(e)}</td><td class="dept-tag">${formatDate(p.date)}</td><td>${to12h(p.from)} â€“ ${to12h(p.to)}</td><td>${p.hours}h</td><td class="dept-tag">${esc(p.place)}${p.place && p.purpose ? ' Â· ' : ''}${esc(p.purpose)}</td><td class="dept-tag">${p.returnedAt ? to12h(p.returnedAt) : 'â€”'}</td><td class="dept-tag">${cnt}</td><td><span class="badge ${p.status}">${p.status[0].toUpperCase() + p.status.slice(1)}</span></td><td>${act}</td></tr>`;
+        return `<tr><td>${empCell(e)}</td><td class="dept-tag">${formatDate(p.date)}</td><td>${to12h(p.from)} — ${to12h(p.to)}</td><td>${p.hours}h</td><td class="dept-tag">${esc(p.place)}${p.place && p.purpose ? ' · ' : ''}${esc(p.purpose)}</td><td class="dept-tag">${p.returnedAt ? to12h(p.returnedAt) : '—'}</td><td class="dept-tag">${cnt}</td><td><span class="badge ${p.status}">${p.status[0].toUpperCase() + p.status.slice(1)}</span></td><td>${act}</td></tr>`;
       }).join('')}</tbody></table>`;
     }
     const permMonthPicker = () => `<input type="month" value="${permViewMonth}" onchange="setPermMonth(this.value)" aria-label="Month" style="padding:.4rem .6rem;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:.8rem" />`;
@@ -1141,11 +1141,11 @@
       const sum = emps.map(e => ({ e, x: permMonth(e.id, m) })).filter(r => r.x.count);
       const pend = getPerms().filter(p => p.status === 'pending').length, dh = officeCfg().dailyMin / 60;
       return `
-        <div class="card"><div class="card-header"><h2>Permissions â€“ ${monthLabel(m)}</h2>
+        <div class="card"><div class="card-header"><h2>Permissions — ${monthLabel(m)}</h2>
           <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">${permMonthPicker()}<button class="btn btn-primary" style="padding:.5rem 1rem;font-size:.8rem" onclick="openPermModal()">+ Add Permission</button></div></div>
           <div class="card-body table-wrap">
-            <div style="padding:.75rem 1rem;background:#f8fafc;font-size:.85rem;line-height:1.7">Quota: <strong>${permPolicy().quota}h</strong> per employee per month (Settings) Â· Daily working hours: <strong>${dh.toFixed(2)}h</strong> Â· Pending requests: <strong>${pend}</strong></div>
-            ${sum.length ? `<table><thead><tr><th>Employee</th><th>Permissions</th><th>Hours used</th><th>Quota</th><th>Excess hrs</th><th>LOP days</th><th>Est. deduction</th></tr></thead><tbody>${sum.map(({ e, x }) => { const d = dh > 0 ? +(x.excess / dh).toFixed(2) : 0; return `<tr><td>${empCell(e)}</td><td>${x.count}</td><td>${x.used}h</td><td>${x.quota}h</td><td>${x.excess ? `<span style="color:#dc2626">${x.excess}h</span>` : '0h'}</td><td>${d}</td><td>${d ? inr(structure(getCTCs()[e.id] || 0).gross / 30 * d) : 'â€”'}</td></tr>`; }).join('')}</tbody></table>` : ''}
+            <div style="padding:.75rem 1rem;background:#f8fafc;font-size:.85rem;line-height:1.7">Quota: <strong>${permPolicy().quota}h</strong> per employee per month (Settings) · Daily working hours: <strong>${dh.toFixed(2)}h</strong> · Pending requests: <strong>${pend}</strong></div>
+            ${sum.length ? `<table><thead><tr><th>Employee</th><th>Permissions</th><th>Hours used</th><th>Quota</th><th>Excess hrs</th><th>LOP days</th><th>Est. deduction</th></tr></thead><tbody>${sum.map(({ e, x }) => { const d = dh > 0 ? +(x.excess / dh).toFixed(2) : 0; return `<tr><td>${empCell(e)}</td><td>${x.count}</td><td>${x.used}h</td><td>${x.quota}h</td><td>${x.excess ? `<span style="color:#dc2626">${x.excess}h</span>` : '0h'}</td><td>${d}</td><td>${d ? inr(structure(getCTCs()[e.id] || 0).gross / 30 * d) : '—'}</td></tr>`; }).join('')}</tbody></table>` : ''}
           </div></div>
         <div class="card" style="margin-top:1.25rem"><div class="card-header"><h2>Permission Records</h2></div><div class="card-body table-wrap">${permTable(list, rowMap, true)}</div></div>${odCard(true)}`;
     }
@@ -1154,9 +1154,9 @@
       x.rows.forEach(r => { rowMap[r.p.id] = r; });
       const list = getPerms().filter(p => p.empId === id && p.date.startsWith(m)).sort((a, b) => (b.date + b.from).localeCompare(a.date + a.from));
       return `
-        <div class="card"><div class="card-header"><h2>My Permissions â€“ ${monthLabel(m)}</h2>
+        <div class="card"><div class="card-header"><h2>My Permissions — ${monthLabel(m)}</h2>
           <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">${permMonthPicker()}<button class="btn btn-primary" style="padding:.5rem 1rem;font-size:.8rem" onclick="openPermModal()">+ Request Permission</button></div></div>
-          <div class="card-body" style="padding:1rem 1.25rem;font-size:.9rem;line-height:1.7">Used <strong>${x.used}h</strong> of <strong>${x.quota}h</strong> free quota${x.excess ? ` Â· <span style="color:#dc2626">${x.excess}h excess will be deducted as loss of pay</span>` : ''}. Permissions are 1 or 2 hours within office hours and need HR approval.</div></div>
+          <div class="card-body" style="padding:1rem 1.25rem;font-size:.9rem;line-height:1.7">Used <strong>${x.used}h</strong> of <strong>${x.quota}h</strong> free quota${x.excess ? ` · <span style="color:#dc2626">${x.excess}h excess will be deducted as loss of pay</span>` : ''}. Permissions are 1 or 2 hours within office hours and need HR approval.</div></div>
         <div class="card" style="margin-top:1.25rem"><div class="card-body table-wrap">${permTable(list, rowMap, false)}</div></div>${odCard(false, id)}`;
     }
 
@@ -1173,7 +1173,7 @@
     function openOdReq() {
       document.getElementById('odReqForm').reset();
       document.getElementById('oqEmp').innerHTML = getEmployees().filter(e => isHR() ? e.status !== 'inactive' : e.id === session?.empId)
-        .map(e => `<option value="${e.id}">${esc(e.empCode ? e.empCode + ' â€“ ' : '')}${esc(e.name)}</option>`).join('');
+        .map(e => `<option value="${e.id}">${esc(e.empCode ? e.empCode + ' — ' : '')}${esc(e.name)}</option>`).join('');
       document.getElementById('oqFrom').value = document.getElementById('oqTo').value = localISO();
       openModal('odReqModal');
     }
@@ -1212,13 +1212,13 @@
       }
       r.status = st; r.days = days; r.by = (session && session.user) || 'admin'; r.decidedAt = new Date().toISOString();
       setOdReqs(l);
-      addActivity(`OD ${st} for <strong>${esc(findEmployee(r.empId)?.name)}</strong> (${formatDate(r.from)}${r.to !== r.from ? ' â€“ ' + formatDate(r.to) : ''})`, st === 'approved' ? 'green' : 'red');
-      showToast(st === 'approved' ? `OD approved â€“ ${days} working day(s) marked` : 'OD rejected', 'success');
+      addActivity(`OD ${st} for <strong>${esc(findEmployee(r.empId)?.name)}</strong> (${formatDate(r.from)}${r.to !== r.from ? ' — ' + formatDate(r.to) : ''})`, st === 'approved' ? 'green' : 'red');
+      showToast(st === 'approved' ? `OD approved — ${days} working day(s) marked` : 'OD rejected', 'success');
       updatePermBadge(); refreshCurrentPage();
     }
     function odReqTable(list, hr) {
       if (!list.length) return '<div class="empty-state">No OD requests.</div>';
-      return `<table><thead><tr><th>Employee</th><th>Dates</th><th>Type</th><th>Place / Purpose</th><th>Duration</th><th>Status</th><th>${hr ? 'Actions' : ''}</th></tr></thead><tbody>${list.map(r => `<tr><td>${empCell(findEmployee(r.empId))}</td><td class="dept-tag">${formatDate(r.from)}${r.to !== r.from ? ' â€“ ' + formatDate(r.to) : ''}</td><td>${esc(r.type)}</td><td class="dept-tag">${esc(r.place)}${r.purpose ? ' Â· ' + esc(r.purpose) : ''}</td><td>${r.dur === 'half' ? 'Half day' : 'Full day'}${r.status === 'approved' ? `<div class="dept-tag">${r.days} day(s) marked</div>` : ''}</td><td><span class="badge ${r.status}">${r.status[0].toUpperCase() + r.status.slice(1)}</span></td><td>${hr && r.status === 'pending' ? `<div class="btn-group" style="flex-wrap:nowrap"><button class="btn btn-approve" onclick="odDecide('${r.id}','approved')">Approve</button><button class="btn btn-reject" onclick="odDecide('${r.id}','rejected')">Reject</button></div>` : ''}</td></tr>`).join('')}</tbody></table>`;
+      return `<table><thead><tr><th>Employee</th><th>Dates</th><th>Type</th><th>Place / Purpose</th><th>Duration</th><th>Status</th><th>${hr ? 'Actions' : ''}</th></tr></thead><tbody>${list.map(r => `<tr><td>${empCell(findEmployee(r.empId))}</td><td class="dept-tag">${formatDate(r.from)}${r.to !== r.from ? ' — ' + formatDate(r.to) : ''}</td><td>${esc(r.type)}</td><td class="dept-tag">${esc(r.place)}${r.purpose ? ' · ' + esc(r.purpose) : ''}</td><td>${r.dur === 'half' ? 'Half day' : 'Full day'}${r.status === 'approved' ? `<div class="dept-tag">${r.days} day(s) marked</div>` : ''}</td><td><span class="badge ${r.status}">${r.status[0].toUpperCase() + r.status.slice(1)}</span></td><td>${hr && r.status === 'pending' ? `<div class="btn-group" style="flex-wrap:nowrap"><button class="btn btn-approve" onclick="odDecide('${r.id}','approved')">Approve</button><button class="btn btn-reject" onclick="odDecide('${r.id}','rejected')">Reject</button></div>` : ''}</td></tr>`).join('')}</tbody></table>`;
     }
     const odCard = (hr, empId) => {
       const list = getOdReqs().filter(r => hr || r.empId === empId).sort((a, b) => (a.status === 'pending' ? 0 : 1) - (b.status === 'pending' ? 0 : 1) || b.from.localeCompare(a.from)).slice(0, 30);
@@ -1331,7 +1331,7 @@
                       <div class="emp-avatar" style="background:${emp?.color || '#64748b'}">${avImg(emp)}</div>
                       <div>
                         <div class="emp-name">${emp?.name || 'Unknown'}</div>
-                        <div class="leave-dates">${l.type} Â· ${formatDate(l.from)} â€“ ${formatDate(l.to)}</div>
+                        <div class="leave-dates">${l.type} · ${formatDate(l.from)} — ${formatDate(l.to)}</div>
                       </div>
                     </div>
                     <div class="btn-group">
@@ -1433,14 +1433,14 @@
                         <div class="emp-avatar" style="background:${e.color}">${avImg(e)}</div>
                         <div>
                           <div class="emp-name">${e.name}</div>
-                          <div class="emp-email">${esc(e.empCode || '')} Â· ${e.email}</div>
+                          <div class="emp-email">${esc(e.empCode || '')} · ${e.email}</div>
                         </div>
                       </div>
                     </td>
                     <td class="dept-tag">${e.dept}</td>
                     <td>${e.role}</td>
-                    <td>${e.doj ? formatDate(e.doj) : 'â€”'}</td>
-                    <td>${e.relievingDate ? formatDate(e.relievingDate) : 'â€”'}</td>
+                    <td>${e.doj ? formatDate(e.doj) : '—'}</td>
+                    <td>${e.relievingDate ? formatDate(e.relievingDate) : '—'}</td>
                     <td>${statusBadge(e.status)}</td>
                     <td>
                       <div class="btn-group">
@@ -1502,7 +1502,7 @@
                       </div>
                     </td>
                     <td>${l.type}</td>
-                    <td class="dept-tag">${formatDate(l.from)} â€“ ${formatDate(l.to)}</td>
+                    <td class="dept-tag">${formatDate(l.from)} — ${formatDate(l.to)}</td>
                     <td>${daysBetween(l.from, l.to)}</td>
                     <td>${statusBadge(l.status)}</td>
                     <td>
@@ -1543,7 +1543,7 @@
       setAttendance(list);
       const emp = findEmployee(rec.empId);
       const label = v => (ATT_STATUSES.find(([k]) => k === v) || [v, v])[1];
-      addActivity(`Attendance for <strong>${esc(emp?.name)}</strong> on ${formatDate(rec.date)} changed: ${label(before)} â†’ ${label(status)}`, status === 'absent' ? 'red' : 'blue');
+      addActivity(`Attendance for <strong>${esc(emp?.name)}</strong> on ${formatDate(rec.date)} changed: ${label(before)} → ${label(status)}`, status === 'absent' ? 'red' : 'blue');
       showToast('Status updated to ' + label(status), 'success');
       refreshCurrentPage();
     }
@@ -1554,7 +1554,7 @@
       if (i != null && i > o.openMin + o.grace) flags.push('Late in');
       if (i != null && t != null && t < o.closeMin - o.grace) flags.push('Early out');
       if (permsOn(a.empId, a.date).some(p => p.status === 'approved')) { flags.length = 0; flags.push('On permission'); }
-      if (i == null || t == null || t <= i) return flags.length ? `<span style="color:#d97706">${flags.join(', ')}</span>` : 'â€”';
+      if (i == null || t == null || t <= i) return flags.length ? `<span style="color:#d97706">${flags.join(', ')}</span>` : '—';
       return fmtDur(officeNetMin(i, t)) + (flags.length ? `<div style="color:#d97706">${flags.join(', ')}</div>` : '');
     }
 
@@ -1654,9 +1654,9 @@
           </div>
           <div class="card-body table-wrap">
             <div style="padding:.75rem 1rem; background:#f8fafc; line-height:1.7; font-size:.85rem;">
-              <strong>${formatDate(date)}</strong> Â· ${dayName}
-              ${info.label ? ` Â· <span class="hol-type ${info.kind}">${esc(info.label)}</span>` : ''}
-              <div class="dept-tag">${marked} of ${rows.length} marked Â· Present ${cnt('present')}, Late ${cnt('late')}, Half Day ${cnt('half-day')}, Absent ${cnt('absent')}, Leave ${cnt('leave')}, Holiday ${cnt('holiday')}</div>
+              <strong>${formatDate(date)}</strong> · ${dayName}
+              ${info.label ? ` · <span class="hol-type ${info.kind}">${esc(info.label)}</span>` : ''}
+              <div class="dept-tag">${marked} of ${rows.length} marked · Present ${cnt('present')}, Late ${cnt('late')}, Half Day ${cnt('half-day')}, Absent ${cnt('absent')}, Leave ${cnt('leave')}, Holiday ${cnt('holiday')}</div>
               <div class="dept-tag">Off days rule: <strong>${weekoffSummary()}</strong>. Change in Settings &rarr; Holidays &amp; Week-offs.</div>
             </div>
             ${rows.length === 0 ? '<div class="empty-state">No employees on the roll for this date.</div>' : `
@@ -1693,7 +1693,7 @@
                         ${ATT_STATUSES.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}
                       </select>
                     </td>
-                    <td class="dept-tag">â€”</td><td class="dept-tag">â€”</td><td class="dept-tag">â€”</td><td class="dept-tag">â€”</td><td class="dept-tag">${attExtra(emp.id, date, null)}</td>`}
+                    <td class="dept-tag">—</td><td class="dept-tag">—</td><td class="dept-tag">—</td><td class="dept-tag">—</td><td class="dept-tag">${attExtra(emp.id, date, null)}</td>`}
                   </tr>`).join('')}
               </tbody>
             </table>`}
@@ -1839,9 +1839,9 @@
       document.getElementById('resDecLWD').value = r.approvedLWD || r.lastWorkingDate;
       document.getElementById('resDecRemarks').value = r.hrRemarks || '';
       document.getElementById('resDecInfo').innerHTML =
-        `<strong>${esc(emp?.name)}</strong> (${esc(emp?.empCode || '')}) â€“ ${esc(emp?.role || '')}<br>
-         Notice date: ${formatDate(r.noticeDate)} Â· Notice period: ${r.noticeDays} days Â· Proposed last working date: <strong>${formatDate(r.lastWorkingDate)}</strong><br>
-         Reason: ${esc(r.reason) || 'â€”'}`;
+        `<strong>${esc(emp?.name)}</strong> (${esc(emp?.empCode || '')}) — ${esc(emp?.role || '')}<br>
+         Notice date: ${formatDate(r.noticeDate)} · Notice period: ${r.noticeDays} days · Proposed last working date: <strong>${formatDate(r.lastWorkingDate)}</strong><br>
+         Reason: ${esc(r.reason) || '—'}`;
       openModal('resDecModal');
     }
 
@@ -1869,7 +1869,7 @@
     function resImpact(r) {
       if (r.status === 'pending') return '<span class="dept-tag">Salary on hold</span>';
       if (r.status === 'accepted') return `<span class="dept-tag">Pro-rata till ${formatDate(r.approvedLWD || r.lastWorkingDate)}</span>`;
-      return '<span class="dept-tag">â€”</span>';
+      return '<span class="dept-tag">—</span>';
     }
 
     function renderResign() {
@@ -1901,7 +1901,7 @@
                     <td class="dept-tag">${formatDate(r.noticeDate)}</td>
                     <td>${r.noticeDays} days</td>
                     <td>${formatDate(lwd)}${r.status === 'accepted' && r.approvedLWD && r.approvedLWD !== r.lastWorkingDate ? `<div class="dept-tag">Proposed ${formatDate(r.lastWorkingDate)}</div>` : ''}</td>
-                    <td class="dept-tag">${esc(r.reason) || 'â€”'}${r.hrRemarks ? `<div>HR: ${esc(r.hrRemarks)}</div>` : ''}</td>
+                    <td class="dept-tag">${esc(r.reason) || '—'}${r.hrRemarks ? `<div>HR: ${esc(r.hrRemarks)}</div>` : ''}</td>
                     <td>${resBadge(r.status)}${r.decidedAt ? `<div class="dept-tag">${formatDate(r.decidedAt)}</div>` : ''}</td>
                     <td>${resImpact(r)}</td>
                     <td><div class="btn-group">
@@ -1961,7 +1961,7 @@
     const pfWageOf = (basic, month) => payCfg().pfOnActual ? basic : Math.min(basic, pfCeiling(month || localISO().slice(0, 7)));
 
     function esc(v) { return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-    function inr(n) { return 'â‚¹' + Math.round(n).toLocaleString('en-IN'); }
+    function inr(n) { return '₹' + Math.round(n).toLocaleString('en-IN'); }
     function getSalaries() { return load(STORAGE_KEYS.salaries) || {}; }
     function getCTCs() { return load(STORAGE_KEYS.ctc) || {}; }
     function getPayruns() { return load(STORAGE_KEYS.payruns) || {}; }
@@ -2119,7 +2119,7 @@
       const rows = payRows(null);
       if (!rows.some(r => r.ctcA > 0)) { showToast('Set at least one CTC first', 'error'); return; }
       const held = rows.filter(r => r.payStatus !== 'pay');
-      if (held.length && !confirm(held.length + ' employee(s) will not be paid in this run (on hold or forwarded):\n' + held.map(r => 'â€¢ ' + r.name + (r.payStatus === 'hold' ? ' (resignation pending)' : ' (forwarded)')).join('\n') + '\n\nProcess payroll anyway?')) return;
+      if (held.length && !confirm(held.length + ' employee(s) will not be paid in this run (on hold or forwarded):\n' + held.map(r => '• ' + r.name + (r.payStatus === 'hold' ? ' (resignation pending)' : ' (forwarded)')).join('\n') + '\n\nProcess payroll anyway?')) return;
       const runs = getPayruns();
       runs[payMonth] = { month: payMonth, processedAt: new Date().toISOString(), rows };
       save(STORAGE_KEYS.payruns, runs);
@@ -2167,7 +2167,7 @@
           ${row('Deductions', 'TDS (income slab, estimated)', tds, 'Statutory deduction')}
           ${row('', 'Net Take-home (before LOP)', s.gross - s.eeEpf - pt - tds, '', 'tot')}
         </tbody></table>
-        <p class="l-note">TDS is estimated under the new tax regime (FY 2026-27): â‚¹75,000 standard deduction, Section 87A rebate up to â‚¹12 lakh taxable income, 4% cess. HRA and conveyance exemptions apply only under the old regime.</p>`;
+        <p class="l-note">TDS is estimated under the new tax regime (FY 2026-27): ₹75,000 standard deduction, Section 87A rebate up to ₹12 lakh taxable income, 4% cess. HRA and conveyance exemptions apply only under the old regime.</p>`;
     }
 
     function viewStructure(empId) {
@@ -2175,7 +2175,7 @@
       if (!e || !ctc) { showToast('Set the annual CTC first', 'error'); return; }
       document.getElementById('letterTitle').textContent = 'Salary Structure';
       document.getElementById('letterPaper').innerHTML = letterHead() +
-        `<p><strong>${esc(e.name)}</strong> (${esc(e.empCode || '')}) â€“ ${esc(e.role)}, ${esc(e.dept)}<br>Annual CTC: <strong>${inr(ctc)}</strong></p>` + structureTable(ctc);
+        `<p><strong>${esc(e.name)}</strong> (${esc(e.empCode || '')}) — ${esc(e.role)}, ${esc(e.dept)}<br>Annual CTC: <strong>${inr(ctc)}</strong></p>` + structureTable(ctc);
       document.getElementById('letterAcceptBtn').style.display = 'none';
       openModal('letterModal');
     }
@@ -2189,7 +2189,7 @@
       const sum = k => rows.reduce((t, r) => t + (r[k] || 0), 0);
       const stat = (label, val, cls) => `
         <div class="stat-card"><div class="stat-info"><h3>${label}</h3><div class="value">${val}</div></div>
-        <div class="stat-icon ${cls}"><strong>â‚¹</strong></div></div>`;
+        <div class="stat-icon ${cls}"><strong>₹</strong></div></div>`;
       const inputStyle = 'width:120px; padding:.4rem .6rem; border:1px solid var(--border); border-radius:8px; font-family:inherit';
 
       return `
@@ -2203,7 +2203,7 @@
         ${holdRows.length ? `<div class="card" style="margin-bottom:1.25rem; border-left:4px solid #d97706;"><div class="card-body" style="font-size:.85rem; line-height:1.6;"><strong>${holdRows.length} salary on hold:</strong> ${holdRows.map(r => esc(r.name)).join(', ')} (resignation pending HR approval). Accept the resignation in Resignations to pay pro-rata, or use <em>Forward</em> to carry the salary to ${monthLabel(nextMonthOf(payMonth))}.</div></div>` : ''}
         <div class="card">
           <div class="card-header" style="flex-wrap:wrap; gap:.75rem">
-            <h2>Payroll â€“ <span class="badge ${locked ? 'approved' : 'pending'}">${locked ? 'Processed' : 'Draft'}</span></h2>
+            <h2>Payroll — <span class="badge ${locked ? 'approved' : 'pending'}">${locked ? 'Processed' : 'Draft'}</span></h2>
             <div class="btn-group" style="align-items:center">
               <input type="month" value="${payMonth}" onchange="setPayMonth(this.value)" style="padding:.45rem .6rem; border:1px solid var(--border); border-radius:8px; font-family:inherit" />
               <button class="btn btn-secondary" style="padding:.5rem 1rem; font-size:.8rem" onclick="exportPayrollCSV()">Export CSV</button>
@@ -2215,7 +2215,7 @@
           <div class="card-body">
             ${rows.length === 0 ? '<div class="empty-state">No employees to pay</div>' : `
             <div class="table-wrap"><table>
-              <thead><tr><th>Employee</th><th>Annual CTC (â‚¹)</th><th>Basic</th><th>HRA</th><th>Conveyance</th><th>Special</th><th>Gross</th><th>LOP</th><th>EPF</th><th>ESI</th><th>Prof. Tax</th><th>TDS</th><th>Net Pay</th><th>Payable</th><th>Pay Status</th><th></th></tr></thead>
+              <thead><tr><th>Employee</th><th>Annual CTC (₹)</th><th>Basic</th><th>HRA</th><th>Conveyance</th><th>Special</th><th>Gross</th><th>LOP</th><th>EPF</th><th>ESI</th><th>Prof. Tax</th><th>TDS</th><th>Net Pay</th><th>Payable</th><th>Pay Status</th><th></th></tr></thead>
               <tbody>
                 ${rows.map(r => {
                   const emp = findEmployee(r.empId);
@@ -2227,8 +2227,8 @@
                     <td>${locked ? inr(r.ctcA) : `<input type="number" min="0" step="10000" value="${r.ctcA || ''}" placeholder="Set CTC" onchange="setCTC('${r.empId}', this.value)" style="${inputStyle}" />`}</td>
                     <td>${inr(r.basic)}</td><td>${inr(r.hra)}</td><td>${inr(r.conv)}</td><td>${inr(r.special)}</td>
                     <td><strong>${inr(r.gross)}</strong></td>
-                    <td>${r.lop ? inr(r.lop) + `<div class="dept-tag">${r.unpaidDays} day(s)${r.permDays ? ' Â· incl. ' + r.permDays + 'd permission excess' : ''}${r.lwd ? ' Â· exit ' + formatDate(r.lwd) : ''}</div>` : (r.exited ? '<div class="dept-tag">Exited</div>' : 'â€”')}</td>
-                    <td>${inr(r.eeEpf)}</td><td>${r.esiEe ? inr(r.esiEe) : 'â€”'}</td><td>${inr(r.pt)}${r.lwfEe ? `<div class="dept-tag">+ LWF ${inr(r.lwfEe)}</div>` : ''}</td><td>${inr(r.tds)}</td>
+                    <td>${r.lop ? inr(r.lop) + `<div class="dept-tag">${r.unpaidDays} day(s)${r.permDays ? ' · incl. ' + r.permDays + 'd permission excess' : ''}${r.lwd ? ' · exit ' + formatDate(r.lwd) : ''}</div>` : (r.exited ? '<div class="dept-tag">Exited</div>' : '—')}</td>
+                    <td>${inr(r.eeEpf)}</td><td>${r.esiEe ? inr(r.esiEe) : '—'}</td><td>${inr(r.pt)}${r.lwfEe ? `<div class="dept-tag">+ LWF ${inr(r.lwfEe)}</div>` : ''}</td><td>${inr(r.tds)}</td>
                     <td>${inr(r.net)}${r.extra ? `<div class="dept-tag">incl. ${inr(r.extra)} bonus / OT / encashment / arrears</div>` : ''}${r.carryIn ? `<div class="dept-tag">+ ${inr(r.carryIn)} carried in</div>` : ''}</td>
                     <td><strong>${inr(r.payable)}</strong></td>
                     <td>${r.payStatus === 'pay' ? '<span class="badge approved">Pay</span>'
@@ -2247,8 +2247,8 @@
               </tbody>
             </table></div>
             <p class="dept-tag" style="padding:1rem 1.25rem; line-height:1.6">
-              Standard structure for every employee: Basic ${PAY.basicPct}% of CTC Â· HRA ${PAY.hraPct}% of Basic Â· Conveyance ${inr(PAY.conveyance)} Â· Special Allowance = balancing figure Â· Employer EPF ${PAY.epfPct}% and Gratuity ${PAY.gratuityPct}% of Basic (inside CTC) Â· Employee EPF ${PAY.epfPct}% of Basic Â· Professional Tax per Telangana slabs Â· TDS on new-regime slabs.
-              LOP = Gross Ã· 30 Ã— (absent days + Â½ Ã— half-days + permission-excess days) from Attendance; Leave and On Duty (OD) are paid (no LOP). Permission hours beyond the monthly quota = excess hours Ã· daily working hours. Resignation: pending = salary on hold; accepted = pro-rata up to last working date (30-day basis). Forward moves a salary to next month's payroll.${locked ? ' Processed ' + timeAgo(run.processedAt) + '.' : ''}
+              Standard structure for every employee: Basic ${PAY.basicPct}% of CTC · HRA ${PAY.hraPct}% of Basic · Conveyance ${inr(PAY.conveyance)} · Special Allowance = balancing figure · Employer EPF ${PAY.epfPct}% and Gratuity ${PAY.gratuityPct}% of Basic (inside CTC) · Employee EPF ${PAY.epfPct}% of Basic · Professional Tax per Telangana slabs · TDS on new-regime slabs.
+              LOP = Gross Ã· 30 Ã— (absent days + ½ Ã— half-days + permission-excess days) from Attendance; Leave and On Duty (OD) are paid (no LOP). Permission hours beyond the monthly quota = excess hours Ã· daily working hours. Resignation: pending = salary on hold; accepted = pro-rata up to last working date (30-day basis). Forward moves a salary to next month's payroll.${locked ? ' Processed ' + timeAgo(run.processedAt) + '.' : ''}
             </p>`}
           </div>
         </div>
@@ -2310,7 +2310,7 @@
     const LAST_LOGIN_KEY = 'hrms_last_login';
     function showLastLogin() {
       const el = document.getElementById('lastLoginLine'); if (!el) return;
-      let t = 'â€”';
+      let t = '—';
       try { const d = JSON.parse(localStorage.getItem(LAST_LOGIN_KEY) || 'null'); if (d && d.at) { const x = new Date(d.at), p = n => String(n).padStart(2, '0'); t = p(x.getDate()) + ' ' + x.toLocaleString('en-GB', { month: 'short' }) + ' ' + x.getFullYear() + ', ' + p(x.getHours()) + ':' + p(x.getMinutes()); } } catch {}
       el.innerHTML = '<strong>Last login:</strong> ' + t;
     }
@@ -2389,9 +2389,9 @@
                 ${mine.map(l => `
                   <tr>
                     <td>${esc(l.type)}</td>
-                    <td class="dept-tag">${formatDate(l.from)} â€“ ${formatDate(l.to)}</td>
+                    <td class="dept-tag">${formatDate(l.from)} — ${formatDate(l.to)}</td>
                     <td>${daysBetween(l.from, l.to)}</td>
-                    <td class="dept-tag">${esc(l.reason) || 'â€”'}</td>
+                    <td class="dept-tag">${esc(l.reason) || '—'}</td>
                     <td>${statusBadge(l.status)}${l.decidedAt ? `<div class="dept-tag">${formatDate(l.decidedAt)}</div>` : ''}</td>
                     <td><div class="btn-group">
                       <button class="btn btn-secondary" onclick="openLeaveLetter('${l.id}','leave')">My Letter</button>
@@ -2458,7 +2458,7 @@
 
       if (l.type === 'appointment') return meta + `
         <p><strong>To,</strong><br>${nm}<br>Employee ID: ${code}</p>
-        <p><strong>Subject: Appointment Order â€“ ${esc(d.designation)}</strong></p>
+        <p><strong>Subject: Appointment Order — ${esc(d.designation)}</strong></p>
         <p>Dear ${nm},</p>
         <p>We are pleased to appoint you as <strong>${esc(d.designation)}</strong> in the <strong>${esc(d.dept)}</strong> department of HRMS, with effect from <strong>${formatDate(d.doj)}</strong>, on the following terms and conditions:</p>
         <ol>
@@ -2472,7 +2472,7 @@
         <p>Please sign in to the HRMS portal and accept this appointment order within 7 days of receipt.</p>
         <p>We welcome you to HRMS and wish you a successful career with us.</p>
         <div class="l-sign">Yours sincerely,<br><br><strong>Authorised Signatory</strong><br>HR Department, HRMS</div>
-        ${d.ctc > 0 ? `<div class="l-annex"><p style="margin-top:1.5rem"><strong>Annexure â€“ Salary Structure</strong></p>${structureTable(d.ctc)}</div>` : ''}
+        ${d.ctc > 0 ? `<div class="l-annex"><p style="margin-top:1.5rem"><strong>Annexure — Salary Structure</strong></p>${structureTable(d.ctc)}</div>` : ''}
         ${d.acceptedAt ? `<div class="l-stamp">Accepted electronically by ${nm} (${code}) on ${fmtDateTime(d.acceptedAt)}</div>` : ''}`;
 
       if (l.type === 'acceptance') return meta + toHR + `
@@ -2485,7 +2485,7 @@
         <div class="l-stamp">Accepted electronically via HRMS login of ${code} on ${fmtDateTime(d.acceptedAt)}</div>`;
 
       if (l.type === 'leave') return meta + toHR + `
-        <p><strong>Subject: Application for ${esc(d.leaveType)} â€“ ${period}</strong></p>
+        <p><strong>Subject: Application for ${esc(d.leaveType)} — ${period}</strong></p>
         <p>Respected Sir/Madam,</p>
         <p>I, <strong>${nm}</strong>, working as ${esc(e.role || '')} in the ${esc(e.dept || '')} department, kindly request you to grant me <strong>${esc(d.leaveType)}</strong> for <strong>${period}</strong>${d.reason ? ` due to the following reason: ${esc(d.reason)}` : ''}.</p>
         <p>I will ensure that my pending work is handed over and managed during my absence. I request you to kindly approve my leave.</p>
@@ -2841,7 +2841,7 @@
           <thead><tr><th>Row</th><th>Employee ID</th><th>Name</th><th>Department</th><th>Designation</th><th>Joined</th><th>Relieved</th><th>Result</th></tr></thead>
           <tbody>${out.slice(0, 300).map(r => `
             <tr><td>${r.row}</td><td>${esc(r.empCode)}</td><td>${esc(r.name)}<div class="dept-tag">${esc(r.email)}</div></td><td>${esc(r.dept)}</td><td>${esc(r.role)}</td>
-            <td>${r.doj ? formatDate(r.doj) : 'â€”'}</td><td>${r.relievingDate ? formatDate(r.relievingDate) : 'â€”'}</td>
+            <td>${r.doj ? formatDate(r.doj) : '—'}</td><td>${r.relievingDate ? formatDate(r.relievingDate) : '—'}</td>
             <td><span class="badge ${badge[r.action][0]}">${badge[r.action][1]}</span>${r.action === 'skip' ? '<div class="dept-tag">Kept unchanged</div>' : ''}${r.errs.length ? `<div class="dept-tag" style="color:#dc2626">${esc(r.errs.join('; '))}</div>` : ''}</td></tr>`).join('')}
           </tbody>
         </table>${out.length > 300 ? `<div class="dept-tag" style="padding:.5rem;">Showing first 300 of ${out.length}. All valid rows will be imported.</div>` : ''}`
@@ -2929,7 +2929,7 @@
       const cur = selected !== undefined ? selected : el.value;
       const l = getDepartments().slice();
       if (cur && !l.some(x => sameName(x, cur))) l.push(cur);
-      el.innerHTML = '<option value="">Select</option>' + l.map(d => `<option value="${esc(d)}">${esc(d)}</option>`).join('') + '<option value="__new__">+ Add new departmentâ€¦</option>';
+      el.innerHTML = '<option value="">Select</option>' + l.map(d => `<option value="${esc(d)}">${esc(d)}</option>`).join('') + '<option value="__new__">+ Add new department—¦</option>';
       el.value = cur || '';
     }
 
@@ -2938,7 +2938,7 @@
       const cur = selected !== undefined ? selected : el.value;
       const names = designationsFor(document.getElementById('empDept').value).map(d => d.name);
       if (cur && !names.some(x => sameName(x, cur))) names.push(cur);
-      el.innerHTML = '<option value="">Select</option>' + names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('') + '<option value="__new__">+ Add new designationâ€¦</option>';
+      el.innerHTML = '<option value="">Select</option>' + names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('') + '<option value="__new__">+ Add new designation—¦</option>';
       el.value = cur || '';
     }
 
@@ -3083,7 +3083,7 @@
 
     // ========== PERFORMANCE (cycles, goals, appraisals) ==========
     const PERF_COMP = ['Quality of Work', 'Productivity', 'Punctuality & Attendance', 'Teamwork', 'Communication', 'Initiative & Ownership'];
-    const PERF_SCALE = ['', '1 â€“ Unsatisfactory', '2 â€“ Needs Improvement', '3 â€“ Meets Expectations', '4 â€“ Exceeds Expectations', '5 â€“ Outstanding'];
+    const PERF_SCALE = ['', '1 — Unsatisfactory', '2 — Needs Improvement', '3 — Meets Expectations', '4 — Exceeds Expectations', '5 — Outstanding'];
     const PERF_RECO = ['No action', 'Increment', 'Promotion', 'Increment + Promotion', 'Performance Improvement Plan'];
     let perfTab = 'reviews', perfCycleId = null;
 
@@ -3106,7 +3106,7 @@
     const getRev = (empId, cid) => getReviews().find(r => r.empId === empId && r.cycleId === cid);
     const avgOf = a => a.reduce((t, v) => t + v, 0) / a.length;
     function perfBand(v) { return v >= 4.5 ? ['active', 'Outstanding'] : v >= 3.5 ? ['approved', 'Exceeds'] : v >= 2.5 ? ['probation', 'Meets'] : v >= 1.5 ? ['on-leave', 'Needs Improvement'] : ['rejected', 'Unsatisfactory']; }
-    const bandBadge = v => { const b = perfBand(v); return `<span class="badge ${b[0]}">${v.toFixed(1)} Â· ${b[1]}</span>`; };
+    const bandBadge = v => { const b = perfBand(v); return `<span class="badge ${b[0]}">${v.toFixed(1)} · ${b[1]}</span>`; };
     function goalPct(empId, cid) {
       const g = getGoals().filter(x => x.empId === empId && x.cycleId === cid);
       if (!g.length) return null;
@@ -3120,11 +3120,11 @@
     }
     const pBar = p => `<div style="display:flex;align-items:center;gap:.5rem;min-width:130px"><div style="flex:1;height:8px;background:#e2e8f0;border-radius:99px;overflow:hidden"><div style="width:${p}%;height:100%;background:${p >= 100 ? '#10b981' : '#2563eb'}"></div></div><span class="dept-tag">${p}%</span></div>`;
     const revStatus = r => !r ? '<span class="badge pending">Awaiting self-review</span>' : r.status === 'done' ? '<span class="badge active">Completed</span>' : r.self ? '<span class="badge probation">Self-review done</span>' : '<span class="badge pending">In progress</span>';
-    const empCell = e => `<div class="emp-cell"><div class="emp-avatar" style="background:${e?.color || '#64748b'}">${avImg(e)}</div><div><div class="emp-name">${esc(e?.name || 'Unknown')}</div><div class="dept-tag">${esc(e?.empCode || '')}${e?.dept ? ' Â· ' + esc(e.dept) : ''}</div></div></div>`;
+    const empCell = e => `<div class="emp-cell"><div class="emp-avatar" style="background:${e?.color || '#64748b'}">${avImg(e)}</div><div><div class="emp-name">${esc(e?.name || 'Unknown')}</div><div class="dept-tag">${esc(e?.empCode || '')}${e?.dept ? ' · ' + esc(e.dept) : ''}</div></div></div>`;
     const stat = (label, v, cls) => `<div class="stat-card"><div class="stat-info"><h3>${label}</h3><div class="value">${v}</div></div><div class="stat-icon ${cls}"></div></div>`;
 
     function perfModalShow(title, body, foot) {
-      document.getElementById('perfBox').innerHTML = `<div class="modal-header"><div class="mh-brand"><div><div class="mh-co">HRMS</div><h3>${title}</h3></div></div><button class="modal-close" onclick="closeModal('perfModal')">âœ•</button></div><div class="modal-body">${body}</div><div class="modal-footer">${foot}</div>`;
+      document.getElementById('perfBox').innerHTML = `<div class="modal-header"><div class="mh-brand"><div><div class="mh-co">HRMS</div><h3>${title}</h3></div></div><button class="modal-close" onclick="closeModal('perfModal')">✕</button></div><div class="modal-body">${body}</div><div class="modal-footer">${foot}</div>`;
       openModal('perfModal');
     }
     const rateGrid = (p, vals = []) => PERF_COMP.map((c, i) => `<div class="form-group"><label>${c}</label><select id="${p}${i}">${PERF_SCALE.map((s, v) => `<option value="${v || ''}" ${vals[i] === v && v ? 'selected' : ''}>${s || 'Select rating'}</option>`).join('')}</select></div>`).join('');
@@ -3188,7 +3188,7 @@
     function openSelfReview() {
       const c = curCycle(), r = getRev(session.empId, c.id);
       if (r?.status === 'done') return;
-      perfModalShow('Self Assessment', `<div class="dept-tag" style="margin-bottom:.75rem">${esc(c.name)} Â· Rate yourself honestly on each area.</div>${rateGrid('ps', r?.self?.ratings)}
+      perfModalShow('Self Assessment', `<div class="dept-tag" style="margin-bottom:.75rem">${esc(c.name)} · Rate yourself honestly on each area.</div>${rateGrid('ps', r?.self?.ratings)}
         <div class="form-group"><label>Key achievements &amp; comments</label><textarea id="psC" rows="3">${esc(r?.self?.comment || '')}</textarea></div>`,
         `<button class="btn btn-secondary" onclick="closeModal('perfModal')">Cancel</button><button class="btn btn-primary" onclick="saveSelfReview()">Submit to HR</button>`);
     }
@@ -3208,9 +3208,9 @@
     function openReview(empId) {
       if (!isHR()) return;
       const c = curCycle(), e = findEmployee(empId), r = getRev(empId, c.id), h = r?.hr || {};
-      const self = r?.self ? `<div style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:.7rem .9rem;margin-bottom:.9rem;font-size:.8rem;line-height:1.6"><strong>Self assessment</strong> (avg ${avgOf(r.self.ratings).toFixed(1)})<br>${PERF_COMP.map((n, i) => `${n}: ${r.self.ratings[i]}`).join(' Â· ')}<br>${esc(r.self.comment) || 'â€”'}</div>` : '<div class="dept-tag" style="margin-bottom:.75rem">Employee has not submitted a self-assessment yet.</div>';
+      const self = r?.self ? `<div style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:.7rem .9rem;margin-bottom:.9rem;font-size:.8rem;line-height:1.6"><strong>Self assessment</strong> (avg ${avgOf(r.self.ratings).toFixed(1)})<br>${PERF_COMP.map((n, i) => `${n}: ${r.self.ratings[i]}`).join(' · ')}<br>${esc(r.self.comment) || '—'}</div>` : '<div class="dept-tag" style="margin-bottom:.75rem">Employee has not submitted a self-assessment yet.</div>';
       const g = goalPct(empId, c.id), a = attPct(empId, c);
-      perfModalShow(`Appraisal â€“ ${esc(e?.name)}`, `<div class="dept-tag" style="margin-bottom:.6rem">${esc(c.name)} Â· Goal achievement: ${g ?? 'â€”'}${g != null ? '%' : ''} Â· Attendance: ${a ?? 'â€”'}${a != null ? '%' : ''}</div>${self}${rateGrid('pr', h.ratings)}
+      perfModalShow(`Appraisal — ${esc(e?.name)}`, `<div class="dept-tag" style="margin-bottom:.6rem">${esc(c.name)} · Goal achievement: ${g ?? '—'}${g != null ? '%' : ''} · Attendance: ${a ?? '—'}${a != null ? '%' : ''}</div>${self}${rateGrid('pr', h.ratings)}
         <div class="form-group"><label>Strengths</label><textarea id="prS" rows="2">${esc(h.strengths || '')}</textarea></div>
         <div class="form-group"><label>Areas to improve</label><textarea id="prI" rows="2">${esc(h.improve || '')}</textarea></div>
         <div class="form-row"><div class="form-group"><label>Recommendation</label><select id="prR">${PERF_RECO.map(x => `<option ${h.reco === x ? 'selected' : ''}>${x}</option>`).join('')}</select></div>
@@ -3255,14 +3255,14 @@
       const tabBtn = (k, l) => `<button class="btn ${perfTab === k ? 'btn-primary' : 'btn-secondary'}" style="padding:.45rem .9rem" onclick="setPerfTab('${k}')">${l}</button>`;
       const body = perfTab === 'reviews' ? `<table><thead><tr><th>Employee</th><th>Goals</th><th>Attendance</th><th>Self</th><th>Final Rating</th><th>Status</th><th>Action</th></tr></thead><tbody>
         ${emps.map(e => { const r = getRev(e.id, c.id), g = goalPct(e.id, c.id), a = attPct(e.id, c); return `<tr><td>${empCell(e)}</td>
-          <td>${g == null ? '<span class="dept-tag">No goals</span>' : pBar(g)}</td><td class="dept-tag">${a == null ? 'â€”' : a + '%'}</td>
-          <td class="dept-tag">${r?.self ? avgOf(r.self.ratings).toFixed(1) : 'â€”'}</td><td>${r?.status === 'done' ? bandBadge(r.avg) : '<span class="dept-tag">â€”</span>'}${r?.status === 'done' && r.hr.reco !== 'No action' ? `<div class="dept-tag">${esc(r.hr.reco)}${r.hr.incr ? ' Â· ' + esc(r.hr.incr) + '%' : ''}</div>` : ''}</td>
+          <td>${g == null ? '<span class="dept-tag">No goals</span>' : pBar(g)}</td><td class="dept-tag">${a == null ? '—' : a + '%'}</td>
+          <td class="dept-tag">${r?.self ? avgOf(r.self.ratings).toFixed(1) : '—'}</td><td>${r?.status === 'done' ? bandBadge(r.avg) : '<span class="dept-tag">—</span>'}${r?.status === 'done' && r.hr.reco !== 'No action' ? `<div class="dept-tag">${esc(r.hr.reco)}${r.hr.incr ? ' · ' + esc(r.hr.incr) + '%' : ''}</div>` : ''}</td>
           <td>${revStatus(r)}</td><td><div class="btn-group"><button class="btn ${r?.status === 'done' ? 'btn-secondary' : 'btn-primary'}" onclick="openReview('${e.id}')">${r?.status === 'done' ? 'View' : 'Review'}</button>${r?.status === 'done' ? `<button class="btn btn-edit" onclick="reopenReview('${e.id}')">Re-open</button>` : ''}</div></td></tr>`; }).join('') || '<tr><td colspan="7" class="empty-state">No active employees</td></tr>'}</tbody></table>`
-        : goals.length ? `<table><thead><tr><th>Employee</th><th>Goal</th><th>Weight</th><th>Target</th><th>Progress</th><th>Action</th></tr></thead><tbody>${goalRows(goals, true)}</tbody></table>` : '<div class="empty-state">No goals set for this cycle. Click â€œ+ Add Goalâ€.</div>';
+        : goals.length ? `<table><thead><tr><th>Employee</th><th>Goal</th><th>Weight</th><th>Target</th><th>Progress</th><th>Action</th></tr></thead><tbody>${goalRows(goals, true)}</tbody></table>` : '<div class="empty-state">No goals set for this cycle. Click —œ+ Add Goal—.</div>';
       return `
         <div class="stats-grid">
           ${stat('Employees in Review', emps.length, 'blue')}${stat('Self-reviews Submitted', revs.filter(r => r?.self).length, 'purple')}
-          ${stat('Appraisals Completed', done.length, 'green')}${stat('Average Rating', done.length ? avgOf(done.map(r => r.avg)).toFixed(1) : 'â€”', 'amber')}
+          ${stat('Appraisals Completed', done.length, 'green')}${stat('Average Rating', done.length ? avgOf(done.map(r => r.avg)).toFixed(1) : '—', 'amber')}
         </div>
         <div class="card">
           <div class="card-header" style="flex-wrap:wrap;gap:.6rem">
@@ -3271,14 +3271,14 @@
           </div>
           <div class="card-body table-wrap">${body}</div>
         </div>
-        <p class="dept-tag" style="padding:1rem 0;line-height:1.6">Cycle: ${formatDate(c.from)} â€“ ${formatDate(c.to)}. Employees see their goals and self-assess under â€œMy Performanceâ€; goal % is weight-based; attendance % comes from marked attendance in the cycle (holidays and leave excluded). Final rating = average of HR ratings.</p>`;
+        <p class="dept-tag" style="padding:1rem 0;line-height:1.6">Cycle: ${formatDate(c.from)} — ${formatDate(c.to)}. Employees see their goals and self-assess under —œMy Performance—; goal % is weight-based; attendance % comes from marked attendance in the cycle (holidays and leave excluded). Final rating = average of HR ratings.</p>`;
     }
 
     function renderMyPerf() {
       const c = curCycle(), r = getRev(session?.empId, c.id), mine = getGoals().filter(g => g.empId === session?.empId && g.cycleId === c.id);
-      const result = r?.status === 'done' ? `<div style="padding:1.25rem;line-height:1.8">${bandBadge(r.avg)}<div style="margin-top:.6rem;font-size:.85rem"><strong>Ratings:</strong> ${PERF_COMP.map((n, i) => `${n}: ${r.hr.ratings[i]}`).join(' Â· ')}<br><strong>Strengths:</strong> ${esc(r.hr.strengths) || 'â€”'}<br><strong>Areas to improve:</strong> ${esc(r.hr.improve) || 'â€”'}</div></div>` : '';
+      const result = r?.status === 'done' ? `<div style="padding:1.25rem;line-height:1.8">${bandBadge(r.avg)}<div style="margin-top:.6rem;font-size:.85rem"><strong>Ratings:</strong> ${PERF_COMP.map((n, i) => `${n}: ${r.hr.ratings[i]}`).join(' · ')}<br><strong>Strengths:</strong> ${esc(r.hr.strengths) || '—'}<br><strong>Areas to improve:</strong> ${esc(r.hr.improve) || '—'}</div></div>` : '';
       return `
-        <div class="card"><div class="card-header"><h2>My Goals â€“ ${esc(c.name)}</h2><button class="btn btn-primary" style="padding:.5rem 1rem;font-size:.8rem" onclick="openGoal()">+ Add Goal</button></div>
+        <div class="card"><div class="card-header"><h2>My Goals — ${esc(c.name)}</h2><button class="btn btn-primary" style="padding:.5rem 1rem;font-size:.8rem" onclick="openGoal()">+ Add Goal</button></div>
           <div class="card-body table-wrap">${mine.length ? `<table><thead><tr><th>Goal</th><th>Weight</th><th>Target</th><th>Progress</th><th>Action</th></tr></thead><tbody>${goalRows(mine, false)}</tbody></table>` : '<div class="empty-state">No goals yet. Add your own or wait for HR to assign them.</div>'}</div></div>
         <div class="card" style="margin-top:1.25rem"><div class="card-header"><h2>My Appraisal</h2><div>${revStatus(r)} ${r?.status === 'done' ? '' : `<button class="btn btn-primary" style="margin-left:.5rem" onclick="openSelfReview()">${r?.self ? 'Edit Self Assessment' : 'Start Self Assessment'}</button>`}</div></div>
           ${result || `<div class="empty-state">${r?.self ? 'Your self-assessment is with HR. The result appears here once finalized.' : 'Complete your self-assessment to begin the appraisal.'}</div>`}</div>`;
@@ -3288,7 +3288,7 @@
     // ========== RECRUITMENT (Company Secretarial & Legal practice) ==========
     const REC_ROLES = ['Company Secretary', 'Assistant Company Secretary', 'Legal Associate', 'Senior Legal Associate', 'Legal Manager', 'Compliance Executive', 'Paralegal', 'Articled Assistant / CS Trainee', 'Legal Intern', 'Drafting & Contracts Executive', 'ROC / MCA Filing Executive', 'Office Administrator'];
     const REC_AREAS = ['Company Secretarial', 'Corporate & Commercial Law', 'Litigation', 'ROC / MCA Compliance', 'SEBI / LODR Compliance', 'FEMA / RBI', 'Contracts & Drafting', 'IPR / Trademarks', 'Taxation & GST Law', 'Due Diligence & M&A', 'Other'];
-    const REC_QUAL = ['CS (Qualified â€“ ACS/FCS)', 'CS Executive passed', 'CS Professional appearing', 'LLB', 'LLM', 'LLB + CS', 'CA', 'B.Com / M.Com', 'MBA', 'Other'];
+    const REC_QUAL = ['CS (Qualified — ACS/FCS)', 'CS Executive passed', 'CS Professional appearing', 'LLB', 'LLM', 'LLB + CS', 'CA', 'B.Com / M.Com', 'MBA', 'Other'];
     const REC_TYPES = ['Full-time', 'Articleship / Traineeship', 'Contract', 'Internship'];
     const REC_SRC = ['Referral', 'LinkedIn', 'Naukri', 'ICSI Placement', 'Bar Association', 'Campus', 'Walk-in', 'Other'];
     const REC_STAGES = ['Applied', 'Screening', 'Technical Interview', 'Partner / Final Interview', 'Offer', 'Hired', 'Rejected'];
@@ -3310,7 +3310,7 @@
         <div class="form-group"><label>Required Qualification</label><select id="rjQ">${opts(REC_QUAL, j.qual)}</select></div>
         <div class="form-row"><div class="form-group"><label>Experience (years)</label><input id="rjX" placeholder="e.g. 2-5" value="${esc(j.exp || '')}" /></div>
         <div class="form-group"><label>Vacancies</label><input type="number" id="rjV" min="1" value="${j.vacancies || 1}" /></div></div>
-        <div class="form-row"><div class="form-group"><label>Salary Range (CTC / month)</label><input id="rjS" placeholder="e.g. â‚¹25,000 â€“ 40,000" value="${esc(j.salary || '')}" /></div>
+        <div class="form-row"><div class="form-group"><label>Salary Range (CTC / month)</label><input id="rjS" placeholder="e.g. ₹25,000 — 40,000" value="${esc(j.salary || '')}" /></div>
         <div class="form-group"><label>Location</label><input id="rjL" value="${esc(j.loc || '')}" /></div></div>
         <div class="form-group"><label>Key Skills / Responsibilities</label><textarea id="rjR" rows="3" placeholder="e.g. ROC filings (MGT-7, AOC-4), board &amp; general meeting minutes, SEBI LODR, drafting agreements">${esc(j.desc || '')}</textarea></div>
         <div class="form-group"><label>Status</label><select id="rjSt">${opts(['Open', 'On Hold', 'Closed'], j.status)}</select></div>`,
@@ -3339,7 +3339,7 @@
         <div class="form-row"><div class="form-group"><label>Email</label><input type="email" id="rcE" value="${esc(c.email || '')}" /></div><div class="form-group"><label>Source</label><select id="rcSo">${opts(REC_SRC, c.source)}</select></div></div>
         <div class="form-row"><div class="form-group"><label>Qualification</label><select id="rcQ">${opts(REC_QUAL, c.qual)}</select></div><div class="form-group"><label>ICSI Membership / Bar Enrolment No.</label><input id="rcM" value="${esc(c.memNo || '')}" /></div></div>
         <div class="form-row"><div class="form-group"><label>Experience (years)</label><input type="number" id="rcX" min="0" step="0.5" value="${c.exp ?? ''}" /></div><div class="form-group"><label>Current Employer / Firm</label><input id="rcC" value="${esc(c.employer || '')}" /></div></div>
-        <div class="form-row"><div class="form-group"><label>Current CTC (â‚¹/yr)</label><input type="number" id="rcCC" value="${c.cctc ?? ''}" /></div><div class="form-group"><label>Expected CTC (â‚¹/yr)</label><input type="number" id="rcEC" value="${c.ectc ?? ''}" /></div></div>
+        <div class="form-row"><div class="form-group"><label>Current CTC (₹/yr)</label><input type="number" id="rcCC" value="${c.cctc ?? ''}" /></div><div class="form-group"><label>Expected CTC (₹/yr)</label><input type="number" id="rcEC" value="${c.ectc ?? ''}" /></div></div>
         <div class="form-row"><div class="form-group"><label>Notice Period (days)</label><input type="number" id="rcNP" value="${c.notice ?? ''}" /></div><div class="form-group"><label>Interview Date</label><input type="date" id="rcD" value="${c.interview || ''}" /></div></div>
         <div class="form-row"><div class="form-group"><label>Stage</label><select id="rcS">${opts(REC_STAGES, c.stage)}</select></div><div class="form-group"><label>Rating (1-5)</label><input type="number" id="rcR" min="1" max="5" value="${c.rating ?? ''}" /></div></div>
         <div class="form-group"><label>Interview Notes / Feedback</label><textarea id="rcNo" rows="2">${esc(c.notes || '')}</textarea></div>`,
@@ -3368,21 +3368,21 @@
     }
 
     function renderRecruitment() {
-      const jobs = getJobs(), all = getCands(), jn = id => jobOf(id)?.title || 'â€”';
+      const jobs = getJobs(), all = getCands(), jn = id => jobOf(id)?.title || '—';
       const cands = all.filter(c => (recStageF === 'all' || c.stage === recStageF) && (recJobF === 'all' || c.jobId === recJobF));
       const n = f => all.filter(f).length, tb = (k, l) => `<button class="btn ${recTab === k ? 'btn-primary' : 'btn-secondary'}" style="padding:.45rem .9rem" onclick="setRec('tab','${k}')">${l}</button>`;
       const sel = 'padding:.45rem .7rem;border:1px solid var(--border);border-radius:8px';
-      const candTable = cands.length ? `<table><thead><tr><th>Candidate</th><th>Position</th><th>Qualification</th><th>Exp.</th><th>CTC (cur â†’ exp)</th><th>Notice</th><th>Stage</th><th>Action</th></tr></thead><tbody>${cands.map(c => `<tr>
-          <td><strong>${esc(c.name)}</strong><div class="dept-tag">${esc(c.phone)}${c.email ? ' Â· ' + esc(c.email) : ''}</div><div class="dept-tag">${esc(c.source || '')}${c.rating ? ' Â· â˜…' + c.rating : ''}</div></td>
-          <td>${esc(jn(c.jobId))}</td><td class="dept-tag">${esc(c.qual || '')}${c.memNo ? '<div>' + esc(c.memNo) + '</div>' : ''}</td><td>${c.exp !== '' && c.exp != null ? c.exp + ' yr' : 'â€”'}</td>
-          <td class="dept-tag">${c.cctc ? inr(+c.cctc) : 'â€”'} â†’ ${c.ectc ? inr(+c.ectc) : 'â€”'}</td><td class="dept-tag">${c.notice ? c.notice + ' d' : 'â€”'}</td>
+      const candTable = cands.length ? `<table><thead><tr><th>Candidate</th><th>Position</th><th>Qualification</th><th>Exp.</th><th>CTC (cur → exp)</th><th>Notice</th><th>Stage</th><th>Action</th></tr></thead><tbody>${cands.map(c => `<tr>
+          <td><strong>${esc(c.name)}</strong><div class="dept-tag">${esc(c.phone)}${c.email ? ' · ' + esc(c.email) : ''}</div><div class="dept-tag">${esc(c.source || '')}${c.rating ? ' · â˜…' + c.rating : ''}</div></td>
+          <td>${esc(jn(c.jobId))}</td><td class="dept-tag">${esc(c.qual || '')}${c.memNo ? '<div>' + esc(c.memNo) + '</div>' : ''}</td><td>${c.exp !== '' && c.exp != null ? c.exp + ' yr' : '—'}</td>
+          <td class="dept-tag">${c.cctc ? inr(+c.cctc) : '—'} → ${c.ectc ? inr(+c.ectc) : '—'}</td><td class="dept-tag">${c.notice ? c.notice + ' d' : '—'}</td>
           <td>${c.empId ? stageBadge('Hired') : `<select class="att-status" onchange="setCandStage('${c.id}',this.value)">${opts(REC_STAGES, c.stage)}</select>`}${c.interview ? `<div class="dept-tag">Interview ${formatDate(c.interview)}</div>` : ''}</td>
-          <td><div class="btn-group" style="flex-wrap:nowrap"><button class="btn btn-edit" onclick="openCand('${c.id}')">Edit</button>${c.stage === 'Offer' && !c.empId ? `<button class="btn btn-approve" onclick="hireCand('${c.id}')">Hire</button>` : ''}<button class="btn btn-delete" onclick="deleteCand('${c.id}')">Delete</button></div></td></tr>`).join('')}</tbody></table>` : '<div class="empty-state">No candidates found. Click â€œ+ Add Candidateâ€.</div>';
+          <td><div class="btn-group" style="flex-wrap:nowrap"><button class="btn btn-edit" onclick="openCand('${c.id}')">Edit</button>${c.stage === 'Offer' && !c.empId ? `<button class="btn btn-approve" onclick="hireCand('${c.id}')">Hire</button>` : ''}<button class="btn btn-delete" onclick="deleteCand('${c.id}')">Delete</button></div></td></tr>`).join('')}</tbody></table>` : '<div class="empty-state">No candidates found. Click —œ+ Add Candidate—.</div>';
       const jobTable = jobs.length ? `<table><thead><tr><th>Position</th><th>Practice Area</th><th>Qualification</th><th>Exp.</th><th>Type</th><th>Vacancies</th><th>Candidates</th><th>Status</th><th>Action</th></tr></thead><tbody>${jobs.map(j => `<tr>
-          <td><strong>${esc(j.title)}</strong><div class="dept-tag">${esc(j.dept)}${j.loc ? ' Â· ' + esc(j.loc) : ''}${j.salary ? ' Â· ' + esc(j.salary) : ''}</div></td><td class="dept-tag">${esc(j.area)}</td><td class="dept-tag">${esc(j.qual)}</td><td>${esc(j.exp) || 'â€”'}</td><td class="dept-tag">${esc(j.type)}</td>
+          <td><strong>${esc(j.title)}</strong><div class="dept-tag">${esc(j.dept)}${j.loc ? ' · ' + esc(j.loc) : ''}${j.salary ? ' · ' + esc(j.salary) : ''}</div></td><td class="dept-tag">${esc(j.area)}</td><td class="dept-tag">${esc(j.qual)}</td><td>${esc(j.exp) || '—'}</td><td class="dept-tag">${esc(j.type)}</td>
           <td>${j.vacancies} <span class="dept-tag">(${n(c => c.jobId === j.id && c.stage === 'Hired')} filled)</span></td><td>${n(c => c.jobId === j.id)}</td>
           <td><span class="badge ${{ Open: 'active', 'On Hold': 'pending', Closed: 'inactive' }[j.status]}">${j.status}</span></td>
-          <td><div class="btn-group" style="flex-wrap:nowrap"><button class="btn btn-edit" onclick="openJob('${j.id}')">Edit</button><button class="btn btn-delete" onclick="deleteJob('${j.id}')">Delete</button></div></td></tr>`).join('')}</tbody></table>` : '<div class="empty-state">No openings yet. Click â€œ+ New Openingâ€.</div>';
+          <td><div class="btn-group" style="flex-wrap:nowrap"><button class="btn btn-edit" onclick="openJob('${j.id}')">Edit</button><button class="btn btn-delete" onclick="deleteJob('${j.id}')">Delete</button></div></td></tr>`).join('')}</tbody></table>` : '<div class="empty-state">No openings yet. Click —œ+ New Opening—.</div>';
       return `
         <div class="stats-grid">${stat('Open Positions', jobs.filter(j => j.status === 'Open').length, 'blue')}${stat('Active Candidates', n(c => !['Hired', 'Rejected'].includes(c.stage)), 'purple')}${stat('In Interview', n(c => /Interview/.test(c.stage)), 'amber')}${stat('Offers / Hired', n(c => c.stage === 'Offer') + ' / ' + n(c => c.stage === 'Hired'), 'green')}</div>
         <div class="card"><div class="card-header" style="flex-wrap:wrap;gap:.6rem">
@@ -3390,7 +3390,7 @@
             ${recTab === 'cands' ? `<select style="${sel}" onchange="setRec('stage',this.value)"><option value="all">All stages</option>${REC_STAGES.map(s => `<option ${s === recStageF ? 'selected' : ''}>${s}</option>`).join('')}</select><select style="${sel}" onchange="setRec('job',this.value)"><option value="all">All positions</option>${jobs.map(j => `<option value="${j.id}" ${j.id === recJobF ? 'selected' : ''}>${esc(j.title)}</option>`).join('')}</select>` : ''}</div>
           <div class="btn-group"><button class="btn btn-secondary" onclick="openJob()">+ New Opening</button><button class="btn btn-primary" onclick="openCand()">+ Add Candidate</button></div></div>
           <div class="card-body table-wrap">${recTab === 'cands' ? candTable : jobTable}</div></div>
-        <p class="dept-tag" style="padding:1rem 0;line-height:1.6">Pipeline: Applied â†’ Screening â†’ Technical Interview â†’ Partner / Final Interview â†’ Offer â†’ Hired. â€œHireâ€ on an Offer-stage candidate creates the employee record (probation) from the opening's position and department.</p>`;
+        <p class="dept-tag" style="padding:1rem 0;line-height:1.6">Pipeline: Applied → Screening → Technical Interview → Partner / Final Interview → Offer → Hired. —œHire— on an Offer-stage candidate creates the employee record (probation) from the opening's position and department.</p>`;
     }
 
 
@@ -3408,7 +3408,7 @@
       if (!p.yearly) return iso >= f && iso <= t;
       const md = iso.slice(5), a = f.slice(5), b = t.slice(5); return a <= b ? md >= a && md <= b : md >= a || md <= b;
     }
-    const popRange = p => { const f = popFrom(p), t = popTo(p), fmt = d => formatDate(d), yr = d => d.replace(/,?\s*\d{4}$/, ''); return p.yearly ? 'Every ' + (f === t ? yr(fmt(f)) : yr(fmt(f)) + ' â€“ ' + yr(fmt(t))) : (f === t ? fmt(f) : fmt(f) + ' â€“ ' + fmt(t)); };
+    const popRange = p => { const f = popFrom(p), t = popTo(p), fmt = d => formatDate(d), yr = d => d.replace(/,?\s*\d{4}$/, ''); return p.yearly ? 'Every ' + (f === t ? yr(fmt(f)) : yr(fmt(f)) + ' — ' + yr(fmt(t))) : (f === t ? fmt(f) : fmt(f) + ' — ' + fmt(t)); };
     const localISO = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
     function popupPick(input) {
@@ -3433,7 +3433,7 @@
       show('popTitle', t !== 'birthday'); show('popEmp', t === 'achievement'); show('popDates', t !== 'birthday'); show('popMsg', t !== 'festival'); show('popYearlyWrap', t === 'festival');
       popTitle.placeholder = t === 'achievement' ? 'Achievement e.g. Passed CS Executive Exam' : 'Occasion e.g. Happy Diwali';
       popTitle.setAttribute('list', t === 'achievement' ? 'achIdeas' : 'popIdeas');
-      popMsg.placeholder = t === 'birthday' ? 'Birthday message (optional â€“ a default is used)' : 'Message (optional) e.g. Proud of your hard work!';
+      popMsg.placeholder = t === 'birthday' ? 'Birthday message (optional — a default is used)' : 'Message (optional) e.g. Proud of your hard work!';
     }
     function addPopup() {
       const t = popKind.value, title = popTitle.value.trim(), from = popFrom_.value, to = popTo_.value || popFrom_.value, msg = popMsg.value.trim(); let list = getPopups(), rec;
@@ -3441,7 +3441,7 @@
       else if (t === 'birthday') { list = list.filter(x => popType(x) !== 'birthday'); rec = { type: t, title: 'Birthday Wishes', image: popupImg, msg: msg || BDAY_MSG }; }
       else { if (!popEmp.value || !title || !from) { showToast('Select employee, achievement and From date', 'error'); return; } if (to < from) { showToast('To date cannot be before From date', 'error'); return; } rec = { type: t, title, empId: popEmp.value, date: from, from, to, msg, image: popupImg }; }
       list.push({ id: uid(), enabled: true, ...rec });
-      try { save(STORAGE_KEYS.popups, list); } catch { showToast('Image too large for browser storage â€“ use a smaller image or delete old popups', 'error'); return; }
+      try { save(STORAGE_KEYS.popups, list); } catch { showToast('Image too large for browser storage — use a smaller image or delete old popups', 'error'); return; }
       popupImg = ''; showToast('Popup saved', 'success'); refreshCurrentPage();
     }
     function togglePopup(id) { const l = getPopups(), p = l.find(x => x.id === id); p.enabled = !p.enabled; save(STORAGE_KEYS.popups, l); refreshCurrentPage(); }
@@ -3450,7 +3450,7 @@
 
     function editPopupDates(id) {
       const p = getPopups().find(x => x.id === id); if (!p) return;
-      perfModalShow('Change display period', `<div class="dept-tag" style="margin-bottom:.8rem"><strong>${esc(p.title)}</strong> â€“ shown every login from the first date to the last date, all day.</div>
+      perfModalShow('Change display period', `<div class="dept-tag" style="margin-bottom:.8rem"><strong>${esc(p.title)}</strong> — shown every login from the first date to the last date, all day.</div>
         <div class="form-row"><div class="form-group"><label>From *</label><input type="date" id="epFrom" value="${popFrom(p)}" /></div><div class="form-group"><label>To *</label><input type="date" id="epTo" value="${popTo(p)}" /></div></div>
         ${popType(p) === 'festival' ? `<label style="display:flex;gap:.4rem;align-items:center;font-size:.85rem"><input type="checkbox" id="epYear" ${p.yearly ? 'checked' : ''} /> Repeat every year</label>` : ''}`,
         `<button class="btn btn-secondary" onclick="closeModal('perfModal')">Cancel</button><button class="btn btn-primary" onclick="saveEditPopup('${id}')">Save</button>`);
@@ -3477,7 +3477,7 @@
       d.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.65);z-index:9999;display:flex;align-items:center;justify-content:center;padding:1rem';
       const top = it.image ? `<img src="${it.image}" style="display:block;max-width:100%;max-height:${it.heading ? '55vh' : 'calc(92vh - 1.2rem)'};border-radius:10px;margin:auto" />` : it.heading ? `<div style="font-size:4rem;text-align:center;padding:1.2rem;background:linear-gradient(135deg,#dbeafe,#ede9fe);border-radius:10px">${it.icon || 'ðŸŽ‰'}</div>` : '';
       const txt = it.heading ? `<div style="padding:1rem 1rem .6rem;text-align:center"><div style="font-size:1.35rem;font-weight:700;color:#1e3a8a">${esc(it.heading)}</div>${it.sub ? `<div style="font-size:1.05rem;font-weight:600;margin-top:.3rem">${esc(it.sub)}</div>` : ''}${it.msg ? `<div style="margin-top:.6rem;color:#475569;line-height:1.6">${esc(it.msg)}</div>` : ''}</div>` : '';
-      d.innerHTML = `<div style="position:relative;max-width:min(92vw,${it.heading ? 520 : 760}px);max-height:92vh;overflow:auto;background:#fff;border-radius:14px;padding:.6rem;box-shadow:0 20px 40px rgba(0,0,0,.35)"><button onclick="closePopup()" title="Close" style="position:absolute;top:8px;right:8px;z-index:1;width:32px;height:32px;border-radius:50%;border:0;background:#0f172a;color:#fff;font-size:16px;cursor:pointer">âœ•</button>${top}${txt}</div>`;
+      d.innerHTML = `<div style="position:relative;max-width:min(92vw,${it.heading ? 520 : 760}px);max-height:92vh;overflow:auto;background:#fff;border-radius:14px;padding:.6rem;box-shadow:0 20px 40px rgba(0,0,0,.35)"><button onclick="closePopup()" title="Close" style="position:absolute;top:8px;right:8px;z-index:1;width:32px;height:32px;border-radius:50%;border:0;background:#0f172a;color:#fff;font-size:16px;cursor:pointer">✕</button>${top}${txt}</div>`;
       d.addEventListener('click', e => { if (e.target === d) closePopup(); });
       document.body.appendChild(d);
       clearTimeout(popTimer); const s = popAutoSecs();
@@ -3524,8 +3524,8 @@
             <div id="popPrev" style="margin-bottom:1rem"></div>
             <div class="table-wrap">${list.length ? `<table><thead><tr><th>Image</th><th>Type / Occasion</th><th>Date</th><th>Status</th><th>Action</th></tr></thead><tbody>${list.map(p => { const t = popType(p), e = t === 'achievement' ? findEmployee(p.empId) : null; return `<tr>
               <td>${p.image ? `<img src="${p.image}" style="height:46px;border-radius:6px;border:1px solid var(--border)" />` : `<span style="font-size:1.6rem">${t === 'birthday' ? 'ðŸŽ‚' : 'ðŸ†'}</span>`}</td>
-              <td><strong>${esc(p.title)}</strong><div class="dept-tag">${POP_KINDS[t]}${e ? ' Â· ' + esc(e.name) : ''}</div></td>
-              <td class="dept-tag">${t === 'birthday' ? "On each employee's birthday" : popRange(p) + ' Â· All day'}</td>
+              <td><strong>${esc(p.title)}</strong><div class="dept-tag">${POP_KINDS[t]}${e ? ' · ' + esc(e.name) : ''}</div></td>
+              <td class="dept-tag">${t === 'birthday' ? "On each employee's birthday" : popRange(p) + ' · All day'}</td>
               <td><span class="badge ${!p.enabled ? 'inactive' : st(p) === 'Past' ? 'on-leave' : 'active'}">${p.enabled ? st(p) : 'Disabled'}</span></td>
               <td><div class="btn-group" style="flex-wrap:nowrap"><button class="btn btn-edit" onclick="showPopupImage('${p.id}')">Preview</button>${t === 'birthday' ? '' : `<button class="btn btn-secondary" onclick="editPopupDates('${p.id}')">Dates</button>`}<button class="btn btn-secondary" onclick="togglePopup('${p.id}')">${p.enabled ? 'Disable' : 'Enable'}</button><button class="btn btn-delete" onclick="deletePopup('${p.id}')">Delete</button></div></td></tr>`; }).join('')}</tbody></table>` : '<div class="empty-state">No popups scheduled</div>'}</div>
           </div>
@@ -3546,13 +3546,13 @@
       if (dayOffInfo(iso).off) { showToast('Today is a holiday / weekly off', 'error'); return; }
       if (r && (r.status === 'leave' || r.status === 'holiday')) { showToast('You are on approved leave today', 'error'); return; }
       selfieGeo = null;
-      perfModalShow(kind === 'in' ? 'Check In â€“ Selfie' : 'Check Out â€“ Selfie', `
+      perfModalShow(kind === 'in' ? 'Check In — Selfie' : 'Check Out — Selfie', `
         <video id="selfieVid" autoplay playsinline muted style="width:100%;max-height:300px;background:#0f172a;border-radius:10px;transform:scaleX(-1)"></video>
-        <div id="selfieMsg" class="dept-tag" style="margin-top:.6rem;line-height:1.6">Starting camera and locationâ€¦</div>${lateWarn(kind)}`,
+        <div id="selfieMsg" class="dept-tag" style="margin-top:.6rem;line-height:1.6">Starting camera and location—¦</div>${lateWarn(kind)}`,
         `<button class="btn btn-secondary" onclick="closeModal('perfModal')">Cancel</button><button class="btn btn-primary" id="selfieBtn" onclick="selfieSubmit('${kind}')">Capture &amp; Submit</button>`);
       navigator.mediaDevices?.getUserMedia({ video: { facingMode: 'user' }, audio: false }).then(st => { selfieStream = st; selfieVid.srcObject = st; })
         .catch(() => { selfieMsg.textContent = 'Camera not available. Allow camera access (page must be on HTTPS or localhost).'; });
-      navigator.geolocation?.getCurrentPosition(pos => { selfieGeo = { lat: pos.coords.latitude, lng: pos.coords.longitude }; selfieMsg.textContent = 'Camera ready Â· Location captured. Look at the camera and tap Capture.'; },
+      navigator.geolocation?.getCurrentPosition(pos => { selfieGeo = { lat: pos.coords.latitude, lng: pos.coords.longitude }; selfieMsg.textContent = 'Camera ready · Location captured. Look at the camera and tap Capture.'; },
         () => { selfieMsg.textContent = 'Location blocked. Allow location access to mark attendance.'; }, { enableHighAccuracy: true, timeout: 15000 });
     }
     function selfieSubmitBase(kind, face) {
@@ -3572,13 +3572,13 @@
         if (r.status === 'late') r.lateApproval = { status: 'pending', reason: (document.getElementById('selfieReason')?.value || '').trim(), at: now }; else delete r.lateApproval; }
       else { r.outTime = hm; let st = officeClassify(hmToMin(r.inTime), hmToMin(hm)).status; const ap = r.lateApproval?.status; if (st === 'late' && ap === 'excused') st = 'present'; if (ap === 'rejected') st = 'absent'; r.status = st; r.geoOut = geo; }
       const sid = uid();
-      if (face && FACE_FLAG.includes(face.state)) { r.faceFlag = { status: 'pending', sid, state: face.state, d: face.d, kind }; if (!/ Â· Face/.test(r.source || '')) r.source = (r.source || 'Selfie') + ' Â· Face ' + FACE_LABEL[face.state].toLowerCase(); }
+      if (face && FACE_FLAG.includes(face.state)) { r.faceFlag = { status: 'pending', sid, state: face.state, d: face.d, kind }; if (!/ · Face/.test(r.source || '')) r.source = (r.source || 'Selfie') + ' · Face ' + FACE_LABEL[face.state].toLowerCase(); }
       else if (face && face.state === 'match') delete r.faceFlag;
       setAttendance(list);
       const keep = new Set([...Array(3)].map((_, i) => localISO(new Date(Date.now() - i * 864e5))));   // keep photos for 3 days only (browser storage limit)
       try { save(STORAGE_KEYS.selfies, [{ id: sid, empId: session.empId, date: iso, kind, time: hm, photo, ...(face ? { face: { state: face.state, d: face.d } } : {}), ...geo }, ...getSelfies()].filter(x => keep.has(x.date))); } catch { }
-      addActivity(`<strong>${esc(findEmployee(session.empId)?.name)}</strong> checked ${kind === 'in' ? 'in' : 'out'} at ${hm} (selfie)${kind === 'in' && r.lateApproval?.status === 'pending' ? ' â€“ LATE, awaiting HR approval' : ''}`, 'green');
-      closeModal('perfModal'); showToast(kind === 'in' ? (r.lateApproval?.status === 'pending' ? 'Checked in at ' + hm + ' â€“ marked LATE, sent to HR for approval' : 'Checked in at ' + hm) : 'Checked out at ' + hm, 'success'); updateLateBadge(); refreshCurrentPage();
+      addActivity(`<strong>${esc(findEmployee(session.empId)?.name)}</strong> checked ${kind === 'in' ? 'in' : 'out'} at ${hm} (selfie)${kind === 'in' && r.lateApproval?.status === 'pending' ? ' — LATE, awaiting HR approval' : ''}`, 'green');
+      closeModal('perfModal'); showToast(kind === 'in' ? (r.lateApproval?.status === 'pending' ? 'Checked in at ' + hm + ' — marked LATE, sent to HR for approval' : 'Checked in at ' + hm) : 'Checked out at ' + hm, 'success'); updateLateBadge(); refreshCurrentPage();
       if (!isHR()) attendanceDonePopup(kind, hm, photo, r.lateApproval?.status === 'pending');
     }
     function renderMyAtt() {
@@ -3586,34 +3586,34 @@
       const inDone = /Selfie/.test(t?.source || '') && t.inTime, outDone = inDone && t.outTime;
       const off = dayOffInfo(iso);
       return `
-        <div class="card"><div class="card-header"><h2>Today â€“ ${formatDate(iso)}</h2></div>
+        <div class="card"><div class="card-header"><h2>Today — ${formatDate(iso)}</h2></div>
           <div class="card-body" style="padding:1.5rem;text-align:center">
             <div style="font-size:2rem;font-weight:700" id="liveClock">${new Date().toTimeString().slice(0, 5)}</div>
-            <div class="dept-tag" style="margin:.4rem 0 1rem">${off.off ? 'Holiday / weekly off today' : inDone ? `Checked in ${t.inTime}${outDone ? ' Â· Checked out ' + t.outTime : ''}` : 'Not checked in yet'}</div>
+            <div class="dept-tag" style="margin:.4rem 0 1rem">${off.off ? 'Holiday / weekly off today' : inDone ? `Checked in ${t.inTime}${outDone ? ' · Checked out ' + t.outTime : ''}` : 'Not checked in yet'}</div>
             <div class="btn-group" style="justify-content:center"><button class="btn btn-primary" style="padding:.7rem 1.4rem;font-size:.9rem" ${off.off || inDone ? 'disabled' : ''} onclick="openSelfie('in')">Check In</button>
             <button class="btn btn-edit" style="padding:.7rem 1.4rem;font-size:.9rem" ${off.off || !inDone ? 'disabled' : ''} onclick="openSelfie('out')">${outDone ? 'Update Check Out' : 'Check Out'}</button></div>
-            <p class="dept-tag" style="margin-top:1rem">A selfie and your location are recorded with each check-in/out. ${(() => { const o = officeCfg(); return `Office opens ${to12h(o.open)} Â· grace ${o.grace} min (until ${to12h(minToHM(o.openMin + o.grace))}). Later check-ins are marked <strong>Late</strong> and sent to HR for approval.`; })()}</p>
+            <p class="dept-tag" style="margin-top:1rem">A selfie and your location are recorded with each check-in/out. ${(() => { const o = officeCfg(); return `Office opens ${to12h(o.open)} · grace ${o.grace} min (until ${to12h(minToHM(o.openMin + o.grace))}). Later check-ins are marked <strong>Late</strong> and sent to HR for approval.`; })()}</p>
           </div></div>
         <div class="card" style="margin-top:1.25rem"><div class="card-header"><h2>My Recent Attendance</h2></div><div class="card-body table-wrap">
-          ${all.length ? `<table><thead><tr><th>Date</th><th>Status</th><th>In</th><th>Out</th><th>Source</th><th>Late Approval</th></tr></thead><tbody>${all.slice(0, 31).map(a => `<tr><td>${formatDate(a.date)}</td><td>${attBadge(a.status)}</td><td>${a.inTime || 'â€”'}</td><td>${a.outTime || 'â€”'}</td><td class="dept-tag">${esc(a.source || '')}</td><td>${lateBadge(a)}</td></tr>`).join('')}</tbody></table>` : '<div class="empty-state">No attendance yet</div>'}</div></div>`;
+          ${all.length ? `<table><thead><tr><th>Date</th><th>Status</th><th>In</th><th>Out</th><th>Source</th><th>Late Approval</th></tr></thead><tbody>${all.slice(0, 31).map(a => `<tr><td>${formatDate(a.date)}</td><td>${attBadge(a.status)}</td><td>${a.inTime || '—'}</td><td>${a.outTime || '—'}</td><td class="dept-tag">${esc(a.source || '')}</td><td>${lateBadge(a)}</td></tr>`).join('')}</tbody></table>` : '<div class="empty-state">No attendance yet</div>'}</div></div>`;
     }
     // HR: office geofence + recent selfie log
     function useMyLocation() {
-      navigator.geolocation?.getCurrentPosition(p => { geoLat.value = p.coords.latitude.toFixed(5); geoLng.value = p.coords.longitude.toFixed(5); showToast('Location filled â€“ click Save', 'success'); }, () => showToast('Location blocked in browser', 'error'));
+      navigator.geolocation?.getCurrentPosition(p => { geoLat.value = p.coords.latitude.toFixed(5); geoLng.value = p.coords.longitude.toFixed(5); showToast('Location filled — click Save', 'success'); }, () => showToast('Location blocked in browser', 'error'));
     }
     function saveGeo() {
       const lat = parseFloat(geoLat.value), lng = parseFloat(geoLng.value), radius = parseInt(geoRad.value, 10);
-      if (geoLat.value === '' && geoLng.value === '') { localStorage.removeItem(STORAGE_KEYS.geo); showToast('Geofence cleared â€“ check-in allowed from anywhere', 'success'); refreshCurrentPage(); return; }
+      if (geoLat.value === '' && geoLng.value === '') { localStorage.removeItem(STORAGE_KEYS.geo); showToast('Geofence cleared — check-in allowed from anywhere', 'success'); refreshCurrentPage(); return; }
       if (isNaN(lat) || isNaN(lng) || !(radius > 0)) { showToast('Enter latitude, longitude and radius', 'error'); return; }
       save(STORAGE_KEYS.geo, { lat, lng, radius }); showToast('Office location saved', 'success'); refreshCurrentPage();
     }
 
-    // ========== FACE MATCH (selfie vs registered photo) â€“ needs /faceapi/face-api.js and /faceapi/model/* on the server ==========
+    // ========== FACE MATCH (selfie vs registered photo) — needs /faceapi/face-api.js and /faceapi/model/* on the server ==========
     const FACE_FLAG = ['mismatch', 'noface', 'multi'];
     const FACE_LABEL = { match: 'Match', mismatch: 'Mismatch', noface: 'No face seen', multi: 'More than one face', noref: 'No registered face', unchecked: 'Not checked' };
     const getFaceCfg = () => ({ mode: 'off', threshold: 0.5, ...(load(STORAGE_KEYS.faceCfg) || {}) });
     function faceBadge(f, blocked) {
-      if (!f) return '<span class="dept-tag">â€”</span>';
+      if (!f) return '<span class="dept-tag">—</span>';
       const cls = f.state === 'match' ? 'approved' : FACE_FLAG.includes(f.state) ? 'rejected' : 'pending';
       return `<span class="badge ${cls}">${FACE_LABEL[f.state] || f.state}${f.d != null ? ' (' + f.d + ')' : ''}</span>${blocked ? '<div class="dept-tag">Check-in refused</div>' : ''}`;
     }
@@ -3659,14 +3659,14 @@
     async function selfieSubmit(kind) {
       const cfg = getFaceCfg(), v = document.getElementById('selfieVid');
       if (cfg.mode === 'off' || isHR() || !selfieStream || !v || !v.videoWidth || !selfieGeo) return selfieSubmitBase(kind, null);
-      const btn = document.querySelector('#perfModal .btn-primary'), old = btn && btn.textContent; if (btn) { btn.disabled = true; btn.textContent = 'Checking faceâ€¦'; }
+      const btn = document.querySelector('#perfModal .btn-primary'), old = btn && btn.textContent; if (btn) { btn.disabled = true; btn.textContent = 'Checking face—¦'; }
       let face; try { face = await faceCheck(session.empId, v, +cfg.threshold || 0.5); } catch (e) { console.warn('Face check unavailable:', e.message); face = { state: 'unchecked' }; }
       if (btn) { btn.disabled = false; btn.textContent = old; }
       if (cfg.mode === 'block' && (FACE_FLAG.includes(face.state))) {
         const c = document.createElement('canvas'), k = 240 / v.videoWidth; c.width = 240; c.height = Math.round(v.videoHeight * k); c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
         const t = localISO(), keep = new Set([...Array(3)].map((_, i) => localISO(new Date(Date.now() - i * 864e5))));
         try { save(STORAGE_KEYS.selfies, [{ id: uid(), empId: session.empId, date: t, kind, time: new Date().toTimeString().slice(0, 5), photo: c.toDataURL('image/jpeg', .5), face, blocked: true }, ...getSelfies()].filter(x => keep.has(x.date))); } catch { }
-        addActivity(`Check-${kind === 'in' ? 'in' : 'out'} refused for <strong>${esc(findEmployee(session.empId)?.name)}</strong> â€“ face ${FACE_LABEL[face.state].toLowerCase()}`, 'red');
+        addActivity(`Check-${kind === 'in' ? 'in' : 'out'} refused for <strong>${esc(findEmployee(session.empId)?.name)}</strong> — face ${FACE_LABEL[face.state].toLowerCase()}`, 'red');
         showToast(face.state === 'multi' ? 'Only one person should be in the photo' : face.state === 'noface' ? 'Face not clearly visible. Look straight at the camera in good light' : 'Your face does not match the registered photo. Try again; if it keeps failing, contact HR', 'error'); return;
       }
       selfieSubmitBase(kind, face);
@@ -3675,7 +3675,7 @@
       if (!isHR()) return '';
       const list = getAttendance().filter(a => a.faceFlag && a.faceFlag.status === 'pending').sort((a, b) => b.date.localeCompare(a.date));
       if (!list.length) return '';
-      return `<div class="card" style="margin-bottom:1.25rem"><div class="card-header"><h2>Face check â€“ needs your review (${list.length})</h2></div><div class="card-body table-wrap"><table><thead><tr><th>Employee</th><th>Date</th><th>Result</th><th>Selfie</th><th>Decision</th></tr></thead><tbody>${list.map(a => { const sf = getSelfies().find(x => x.id === a.faceFlag.sid); return `<tr><td>${empCell(findEmployee(a.empId))}</td><td class="dept-tag">${formatDate(a.date)} Â· ${a.faceFlag.kind === 'in' ? 'In' : 'Out'}</td><td>${faceBadge({ state: a.faceFlag.state, d: a.faceFlag.d })}</td><td>${sf ? `<img src="${sf.photo}" title="Click to compare" onclick="selfiePreview('${sf.id}')" style="height:44px;border-radius:6px;cursor:zoom-in" />` : '<span class="dept-tag">Photo expired</span>'}</td><td><div class="btn-group" style="flex-wrap:nowrap"><button class="btn btn-approve" onclick="faceDecide('${a.id}','same')">Same person</button><button class="btn btn-reject" onclick="faceDecide('${a.id}','other')">Not the employee</button></div></td></tr>`; }).join('')}</tbody></table></div></div>`;
+      return `<div class="card" style="margin-bottom:1.25rem"><div class="card-header"><h2>Face check — needs your review (${list.length})</h2></div><div class="card-body table-wrap"><table><thead><tr><th>Employee</th><th>Date</th><th>Result</th><th>Selfie</th><th>Decision</th></tr></thead><tbody>${list.map(a => { const sf = getSelfies().find(x => x.id === a.faceFlag.sid); return `<tr><td>${empCell(findEmployee(a.empId))}</td><td class="dept-tag">${formatDate(a.date)} · ${a.faceFlag.kind === 'in' ? 'In' : 'Out'}</td><td>${faceBadge({ state: a.faceFlag.state, d: a.faceFlag.d })}</td><td>${sf ? `<img src="${sf.photo}" title="Click to compare" onclick="selfiePreview('${sf.id}')" style="height:44px;border-radius:6px;cursor:zoom-in" />` : '<span class="dept-tag">Photo expired</span>'}</td><td><div class="btn-group" style="flex-wrap:nowrap"><button class="btn btn-approve" onclick="faceDecide('${a.id}','same')">Same person</button><button class="btn btn-reject" onclick="faceDecide('${a.id}','other')">Not the employee</button></div></td></tr>`; }).join('')}</tbody></table></div></div>`;
     }
     function faceDecide(id, how) {
       if (!isHR()) return; const l = getAttendance(), a = l.find(x => x.id === id); if (!a || !a.faceFlag) return;
@@ -3690,11 +3690,11 @@
       save(STORAGE_KEYS.faceCfg, { mode: document.getElementById('faceMode').value, threshold: t }); showToast('Face matching settings saved', 'success'); refreshCurrentPage();
     }
     async function faceTest() {
-      const o = document.getElementById('faceOut'); o.innerHTML = 'Loading face library and modelsâ€¦';
+      const o = document.getElementById('faceOut'); o.innerHTML = 'Loading face library and models—¦';
       try { await faceLoad(); o.innerHTML = '<span style="color:#16a34a;font-weight:600">Face system is working</span> (detector: ' + (FD.det === 'ssd' ? 'SSD' : 'Tiny') + ').'; } catch (e) { o.innerHTML = '<span style="color:#dc2626;font-weight:600">Not ready:</span> ' + esc(e.message); }
     }
     async function faceEnrollAll() {
-      const o = document.getElementById('faceOut'); o.innerHTML = 'Reading registered photosâ€¦'; let ok = 0; const bad = [];
+      const o = document.getElementById('faceOut'); o.innerHTML = 'Reading registered photos—¦'; let ok = 0; const bad = [];
       try { await faceLoad(); } catch (e) { o.innerHTML = '<span style="color:#dc2626">Not ready:</span> ' + esc(e.message); return; }
       for (const e of getEmployees().filter(x => x.status !== 'inactive')) { try { const r = await faceRef(e.id); if (r && r !== 'noface') ok++; else bad.push(e.name + (r === null ? ' (no photo)' : ' (no clear face)')); } catch { bad.push(e.name + ' (error)'); } }
       o.innerHTML = `<strong>${ok}</strong> photo(s) ready.${bad.length ? ' <span style="color:#dc2626">Replace these photos with a clear, front-facing one:</span> ' + bad.map(esc).join(', ') : ''}`;
@@ -3719,8 +3719,8 @@
       d.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(15,23,42,.8);display:flex;align-items:center;justify-content:center;padding:1rem;overflow:auto';
       d.onclick = ev => { if (ev.target === d) d.remove(); };
       d.innerHTML = `<div style="background:#fff;border-radius:14px;padding:1.1rem 1.25rem;max-width:720px;width:100%;position:relative"><button onclick="document.getElementById('selfiePrev').remove()" aria-label="Close" style="position:absolute;right:.7rem;top:.5rem;border:0;background:none;font-size:1.3rem;cursor:pointer">&#10005;</button>
-        <div style="font-weight:700;font-size:1.05rem;margin-bottom:.15rem">${esc(e.name || 'â€”')} <span class="dept-tag">${esc(e.empCode || '')}</span></div>
-        <div class="dept-tag" style="margin-bottom:.8rem;line-height:1.6">${x.kind === 'in' ? 'Check In' : 'Check Out'} Â· ${formatDate(x.date)} Â· ${x.time} Â· ${x.dist != null ? 'Distance from office ' + x.dist + ' m' : 'No geofence'}${a && a.source ? ' Â· ' + esc(a.source) : ''}</div>
+        <div style="font-weight:700;font-size:1.05rem;margin-bottom:.15rem">${esc(e.name || '—')} <span class="dept-tag">${esc(e.empCode || '')}</span></div>
+        <div class="dept-tag" style="margin-bottom:.8rem;line-height:1.6">${x.kind === 'in' ? 'Check In' : 'Check Out'} · ${formatDate(x.date)} · ${x.time} · ${x.dist != null ? 'Distance from office ' + x.dist + ' m' : 'No geofence'}${a && a.source ? ' · ' + esc(a.source) : ''}</div>
         <div style="margin-bottom:.7rem">${faceBadge(x.face, x.blocked)}</div>
         <div style="display:flex;gap:1rem;flex-wrap:wrap;justify-content:center">${box('Check-in selfie', x.photo)}${box('Registered photo', reg)}</div></div>`;
       document.body.appendChild(d);
@@ -3729,11 +3729,11 @@
     function renderSelfieCard() {
       const g = getGeo(), inp = 'padding:.5rem .7rem;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:.85rem', rows = getSelfies().slice(0, 20);
       return `<div class="card"><div class="card-header"><h2>Self Attendance (Selfie + Location)</h2></div><div class="card-body" style="padding:1.25rem">
-        <p class="dept-tag" style="margin-bottom:1rem;line-height:1.6">Employees check in/out from â€œMy Attendanceâ€. Set the office location and allowed radius so check-in works only at the office. Leave blank to allow from anywhere.</p>
+        <p class="dept-tag" style="margin-bottom:1rem;line-height:1.6">Employees check in/out from —œMy Attendance—. Set the office location and allowed radius so check-in works only at the office. Leave blank to allow from anywhere.</p>
         <div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin-bottom:1rem">
           <input id="geoLat" placeholder="Latitude" value="${g.lat ?? ''}" style="${inp};width:130px" /><input id="geoLng" placeholder="Longitude" value="${g.lng ?? ''}" style="${inp};width:130px" /><input id="geoRad" type="number" placeholder="Radius (m)" value="${g.radius ?? 200}" style="${inp};width:120px" />
           <button class="btn btn-secondary" onclick="useMyLocation()">Use my current location</button><button class="btn btn-primary" style="padding:.55rem 1rem" onclick="saveGeo()">Save</button></div>
-        <div class="table-wrap">${rows.length ? `<table><thead><tr><th>Selfie</th><th>Employee</th><th>Date</th><th>Type</th><th>Time</th><th>Distance</th><th>Face</th></tr></thead><tbody>${rows.map(x => `<tr><td><img src="${x.photo}" title="Click to preview" onclick="selfiePreview('${x.id}')" style="height:48px;border-radius:6px;cursor:zoom-in" /></td><td>${esc(findEmployee(x.empId)?.name || 'â€”')}</td><td class="dept-tag">${formatDate(x.date)}</td><td>${x.kind === 'in' ? 'Check In' : 'Check Out'}</td><td>${x.time}</td><td class="dept-tag">${x.dist != null ? x.dist + ' m' : 'No geofence'}</td><td>${faceBadge(x.face, x.blocked)}</td></tr>`).join('')}</tbody></table>` : '<div class="empty-state">No selfie check-ins yet (photos are kept for 3 days)</div>'}</div></div></div>`;
+        <div class="table-wrap">${rows.length ? `<table><thead><tr><th>Selfie</th><th>Employee</th><th>Date</th><th>Type</th><th>Time</th><th>Distance</th><th>Face</th></tr></thead><tbody>${rows.map(x => `<tr><td><img src="${x.photo}" title="Click to preview" onclick="selfiePreview('${x.id}')" style="height:48px;border-radius:6px;cursor:zoom-in" /></td><td>${esc(findEmployee(x.empId)?.name || '—')}</td><td class="dept-tag">${formatDate(x.date)}</td><td>${x.kind === 'in' ? 'Check In' : 'Check Out'}</td><td>${x.time}</td><td class="dept-tag">${x.dist != null ? x.dist + ' m' : 'No geofence'}</td><td>${faceBadge(x.face, x.blocked)}</td></tr>`).join('')}</tbody></table>` : '<div class="empty-state">No selfie check-ins yet (photos are kept for 3 days)</div>'}</div></div></div>`;
     }
 
 
@@ -3746,7 +3746,7 @@
         <div class="form-group" style="margin-top:.6rem"><label>Reason for late arrival</label><textarea id="selfieReason" rows="2" placeholder="e.g. Traffic, bus delay, client meeting"></textarea></div>`;
     }
     function lateBadge(a) {
-      const l = a.lateApproval; if (!l) return '<span class="dept-tag">â€”</span>';
+      const l = a.lateApproval; if (!l) return '<span class="dept-tag">—</span>';
       const cls = { pending: 'pending', accepted: 'probation', excused: 'active', rejected: 'rejected' }[l.status], txt = { pending: 'Pending HR', accepted: 'Accepted as Late', excused: 'Excused', rejected: 'Rejected' }[l.status];
       return `<span class="badge ${cls}">${txt}</span>${l.remark ? `<div class="dept-tag">${esc(l.remark)}</div>` : ''}`;
     }
@@ -3760,9 +3760,9 @@
     function renderLateApprovals() {
       const list = pendingLate(); if (!list.length || !isHR()) return '';
       const o = officeCfg(), sf = getSelfies();
-      return `<div class="card" style="border-left:4px solid #f59e0b"><div class="card-header"><h2>Late Attendance â€“ Awaiting Approval (${list.length})</h2></div><div class="card-body table-wrap"><table><thead><tr><th>Employee</th><th>Date</th><th>Check-in</th><th>Late by</th><th>Reason</th><th>Selfie</th><th>Decision</th></tr></thead><tbody>${list.map(a => {
+      return `<div class="card" style="border-left:4px solid #f59e0b"><div class="card-header"><h2>Late Attendance — Awaiting Approval (${list.length})</h2></div><div class="card-body table-wrap"><table><thead><tr><th>Employee</th><th>Date</th><th>Check-in</th><th>Late by</th><th>Reason</th><th>Selfie</th><th>Decision</th></tr></thead><tbody>${list.map(a => {
         const e = findEmployee(a.empId), by = hmToMin(a.inTime) - o.openMin, ph = sf.find(x => x.empId === a.empId && x.date === a.date && x.kind === 'in');
-        return `<tr><td>${empCell(e)}</td><td class="dept-tag">${formatDate(a.date)}</td><td>${to12h(a.inTime)}</td><td class="dept-tag">${fmtDur(by)} (grace ${o.grace}m)</td><td class="dept-tag">${esc(a.lateApproval.reason) || 'â€”'}</td><td>${ph ? `<img src="${ph.photo}" title="Click to preview" onclick="selfiePreview('${ph.id}')" style="height:44px;border-radius:6px;cursor:zoom-in" />` : 'â€”'}</td>
+        return `<tr><td>${empCell(e)}</td><td class="dept-tag">${formatDate(a.date)}</td><td>${to12h(a.inTime)}</td><td class="dept-tag">${fmtDur(by)} (grace ${o.grace}m)</td><td class="dept-tag">${esc(a.lateApproval.reason) || '—'}</td><td>${ph ? `<img src="${ph.photo}" title="Click to preview" onclick="selfiePreview('${ph.id}')" style="height:44px;border-radius:6px;cursor:zoom-in" />` : '—'}</td>
           <td><div class="btn-group" style="flex-wrap:nowrap"><button class="btn btn-edit" onclick="lateDecide('${a.id}','accept')">Accept as Late</button><button class="btn btn-approve" onclick="lateDecide('${a.id}','excuse')">Excuse</button><button class="btn btn-delete" onclick="lateDecide('${a.id}','reject')">Reject</button></div></td></tr>`; }).join('')}</tbody></table></div></div>`;
     }
     function lateDecide(id, act) {
@@ -3788,9 +3788,9 @@
       d.innerHTML = `<div style="background:#fff;border-radius:16px;padding:1.6rem 1.4rem 1.3rem;width:100%;max-width:360px;text-align:center;box-shadow:0 20px 40px rgba(0,0,0,.35)">
         <div style="font-size:1.35rem;font-weight:700;color:#0f172a">${esc(e.name)}</div>
         <img src="${photo}" alt="" style="width:130px;height:130px;border-radius:50%;object-fit:cover;border:4px solid #10b981;margin:1rem auto;display:block" />
-        <div style="font-size:1.05rem;font-weight:600;color:#059669">âœ” Your Attendance is Successfully Recorded</div>
-        <div style="margin-top:.5rem;color:#64748b;font-size:.85rem">${kind === 'in' ? 'Checked in' : 'Checked out'} at ${to12h(hm)} Â· ${formatDate(localISO())}</div>
-        ${late ? '<div style="margin-top:.7rem;padding:.5rem .7rem;background:#fef3c7;border-radius:8px;color:#92400e;font-size:.8rem">Marked Late â€“ sent to HR for approval</div>' : ''}
+        <div style="font-size:1.05rem;font-weight:600;color:#059669">✔ Your Attendance is Successfully Recorded</div>
+        <div style="margin-top:.5rem;color:#64748b;font-size:.85rem">${kind === 'in' ? 'Checked in' : 'Checked out'} at ${to12h(hm)} · ${formatDate(localISO())}</div>
+        ${late ? '<div style="margin-top:.7rem;padding:.5rem .7rem;background:#fef3c7;border-radius:8px;color:#92400e;font-size:.8rem">Marked Late — sent to HR for approval</div>' : ''}
         <button class="btn btn-primary" style="margin-top:1.1rem;padding:.6rem 2rem" onclick="document.getElementById('attDone').remove()">OK</button></div>`;
       d.addEventListener('click', ev => { if (ev.target === d) d.remove(); });
       document.body.appendChild(d); setTimeout(() => d.remove(), 10000);
@@ -3839,34 +3839,183 @@
     }
     function renderAttDash() {
       if (!isHR()) return '';
-      const date = dashAttDate || localISO(), rows = attDayRows(date), N = rows.length, cnt = st => rows.filter(x => x.r?.status === st).length;
+      const date = dashAttDate || localISO(), rows = attDayRows(date), N = rows.length || 1;
+      const cnt = st => rows.filter(x => x.r?.status === st).length;
       const marked = rows.filter(x => x.r).length, unmarked = N - marked, pend = pendingLate().length;
-      const tiles = [['marked', 'Marked', `${marked} of ${N}`, '#0f172a'], ['present', 'Present', cnt('present'), ATT_COL.present], ['late', 'Late', cnt('late'), ATT_COL.late], ['half-day', 'Half Day', cnt('half-day'), ATT_COL['half-day']], ['od', 'On Duty', cnt('od'), ATT_COL.od],
-        ['absent', 'Absent', cnt('absent'), ATT_COL.absent], ['leave', 'Leave', cnt('leave'), ATT_COL.leave], ['holiday', 'Holiday', cnt('holiday'), ATT_COL.holiday], ['unmarked', 'Not Marked', unmarked, '#94a3b8']];
-      const f = dashAttFilter, show = rows.filter(x => f === 'all' ? true : f === 'exceptions' ? (!x.r || ['late', 'half-day', 'absent'].includes(x.r.status)) : f === 'marked' ? !!x.r : f === 'unmarked' ? !x.r : x.r?.status === f);
-      const bar = N ? ['present', 'late', 'half-day', 'absent', 'leave', 'od', 'holiday'].map(st => cnt(st) ? `<div title="${st}: ${cnt(st)}" style="width:${cnt(st) / N * 100}%;background:${ATT_COL[st]}"></div>` : '').join('') : '';
+      const presentCnt = cnt('present');
+      const lateCnt = cnt('late');
+      const leaveCnt = cnt('leave');
+      const odCnt = cnt('od');
+      const absentCnt = cnt('absent');
+      const halfDayCnt = cnt('half-day');
+      const totalAttended = presentCnt + lateCnt + halfDayCnt + odCnt;
+      const pct = Math.round((totalAttended / N) * 100);
+
+      const f = dashAttFilter;
+      const show = rows.filter(x => {
+        if (f === 'all') return true;
+        if (f === 'exceptions') return !x.r || ['late', 'half-day', 'absent'].includes(x.r.status);
+        if (f === 'present') return x.r?.status === 'present';
+        if (f === 'late') return x.r?.status === 'late';
+        if (f === 'leave') return x.r?.status === 'leave';
+        if (f === 'unmarked') return !x.r;
+        return x.r?.status === f;
+      });
+
       const days = [...Array(7)].map((_, i) => localISO(new Date(new Date(date + 'T00:00:00').getTime() - (6 - i) * 864e5)));
-      const trend = days.map(d => { const rr = attDayRows(d), n = rr.length || 1, c = st => rr.filter(x => x.r?.status === st).length, att = c('present') + c('late');
-        return `<div style="flex:1;min-width:46px;text-align:center"><div style="height:90px;display:flex;flex-direction:column-reverse;border-radius:6px;overflow:hidden;background:#f1f5f9">${['present', 'late', 'half-day', 'absent', 'leave', 'od'].map(st => c(st) ? `<div title="${st}: ${c(st)}" style="height:${c(st) / n * 100}%;background:${ATT_COL[st]}"></div>` : '').join('')}</div>
-          <div style="font-size:.7rem;font-weight:600;margin-top:.3rem${d === date ? ';color:var(--primary)' : ''}">${new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'short' })}</div><div class="dept-tag" style="font-size:.68rem">${att}/${rr.length}</div></div>`; }).join('');
-      const filt = [['exceptions', 'Needs attention'], ['all', 'Everyone']];
+      const trend = days.map(d => {
+        const rr = attDayRows(d), n = rr.length || 1;
+        const c = st => rr.filter(x => x.r?.status === st).length;
+        const att = c('present') + c('late') + c('half-day') + c('od');
+        const hPct = Math.round((att / n) * 100);
+        const isCurrent = d === date;
+        return `
+          <div style="flex:1;min-width:44px;text-align:center;display:flex;flex-direction:column;align-items:center;">
+            <div style="height:100px;width:32px;display:flex;flex-direction:column;justify-content:flex-end;border-radius:8px;background:#f1f5f9;padding:3px;box-sizing:border-box;">
+              <div style="width:100%;height:${Math.max(hPct, 8)}%;border-radius:6px;background:${isCurrent ? 'linear-gradient(180deg,#2563eb,#1d4ed8)' : '#10b981'};transition:height 0.3s;" title="${att}/${n} attended (${hPct}%)"></div>
+            </div>
+            <div style="font-size:.72rem;font-weight:${isCurrent ? '700' : '500'};color:${isCurrent ? '#2563eb' : '#64748b'};margin-top:6px;">
+              ${new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'short' })}
+            </div>
+            <div style="font-size:.68rem;color:#94a3b8;font-weight:600;">${att}/${n}</div>
+          </div>`;
+      }).join('');
+
       return `
-        <div class="card" style="margin-bottom:1.25rem">
-          <div class="card-header" style="flex-wrap:wrap;gap:.6rem"><div><h2>Attendance Overview</h2><div class="dept-tag">${formatDate(date)} Â· ${new Date(date + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'long' })}${dayOffInfo(date).off ? ' Â· Holiday / weekly off' : ''}</div></div>
-            <div class="btn-group"><input type="date" value="${date}" onchange="setDashAtt('date',this.value)" style="padding:.45rem .6rem;border:1px solid var(--border);border-radius:8px" /><button class="btn btn-secondary" onclick="setDashAtt('date','')">Today</button><button class="btn btn-primary" onclick="navigate('attendance')">Open Attendance</button></div></div>
-          <div style="padding:1.1rem 1.25rem">
-            ${pend ? `<div style="margin-bottom:1rem;padding:.65rem .9rem;background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;color:#92400e;font-size:.85rem;display:flex;gap:.6rem;align-items:center;flex-wrap:wrap">âš  ${pend} late attendance request${pend > 1 ? 's' : ''} awaiting your approval <button class="btn btn-edit" onclick="navigate('attendance')">Review</button></div>` : ''}
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:.75rem">${tiles.map(([k, l, v, c]) => `<div onclick="setDashAtt('f','${k}')" style="cursor:pointer;border:1px solid ${f === k ? c : 'var(--border)'};border-left:4px solid ${c};border-radius:10px;padding:.7rem .85rem;background:${f === k ? '#f8fafc' : '#fff'}"><div class="dept-tag" style="font-size:.74rem">${l}</div><div style="font-size:1.45rem;font-weight:700;color:${c}">${v}</div></div>`).join('')}</div>
-            <div style="display:flex;height:12px;border-radius:99px;overflow:hidden;background:#e2e8f0;margin:1rem 0 .3rem">${bar}</div>
-            <div class="dept-tag" style="font-size:.72rem">Attendance mix for the day${N ? ` Â· ${Math.round((cnt('present') + cnt('late') + cnt('half-day') + cnt('od')) / N * 100)}% attended` : ''}</div>
-            <div style="display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:1.25rem;margin-top:1.1rem" class="att-dash-grid">
-              <div><div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-bottom:.5rem"><strong style="font-size:.9rem">${f === 'exceptions' ? 'Needs attention' : (tiles.find(t => t[0] === f)?.[1] || 'Everyone')} (${show.length})</strong>${f !== 'exceptions' ? '<button class="btn btn-secondary" style="padding:.25rem .6rem;font-size:.72rem" onclick="setDashAtt(\'f\',\'exceptions\')">Needs attention</button>' : ''}${f !== 'all' ? '<button class="btn btn-secondary" style="padding:.25rem .6rem;font-size:.72rem" onclick="setDashAtt(\'f\',\'all\')">Show everyone</button>' : ''}</div>
-                <div class="table-wrap" style="max-height:340px">${show.length ? `<table><thead><tr><th>Employee</th><th>Status</th><th>In</th><th>Out</th><th>Approval</th></tr></thead><tbody>${show.map(({ e, r }) => `<tr><td>${empCell(e)}</td><td>${r ? `${attBadge(r.status)}` : '<span class="badge pending">Not marked</span>'}</td><td>${r?.inTime ? to12h(r.inTime) : 'â€”'}</td><td>${r?.outTime ? to12h(r.outTime) : 'â€”'}</td><td>${r ? lateBadge(r) : 'â€”'}</td></tr>`).join('')}</tbody></table>` : '<div class="empty-state">Nothing to show for this selection</div>'}</div></div>
-              <div><strong style="font-size:.9rem">Last 7 days</strong><div style="display:flex;gap:.4rem;margin-top:.6rem;overflow-x:auto">${trend}</div>
-                <div style="display:flex;gap:.7rem;flex-wrap:wrap;margin-top:.7rem;font-size:.7rem">${['present', 'late', 'half-day', 'absent', 'leave', 'od'].map(st => `<span><i style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${ATT_COL[st]};margin-right:4px"></i>${(ATT_STATUSES.find(a => a[0] === st) || [, st])[1]}</span>`).join('')}</div></div>
+        <div class="card" style="margin-bottom:1.5rem;box-shadow:0 10px 25px -5px rgba(0,0,0,0.04),0 0 0 1px rgba(226,232,240,0.8);border-radius:16px;overflow:hidden;">
+          <div class="card-header" style="background:#ffffff;padding:1.25rem 1.5rem;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;">
+            <div>
+              <div style="display:flex;align-items:center;gap:.6rem;">
+                <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#10b981;box-shadow:0 0 0 3px rgba(16,185,129,0.2);"></span>
+                <h2 style="font-size:1.2rem;font-weight:700;color:#0f172a;margin:0;">Attendance Overview</h2>
+              </div>
+              <div class="dept-tag" style="font-size:.8rem;color:#64748b;margin-top:.25rem;">
+                ${formatDate(date)} · ${new Date(date + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'long' })}${dayOffInfo(date).off ? ' · Holiday / Weekly Off' : ''}
+              </div>
+            </div>
+            <div class="btn-group" style="display:flex;align-items:center;gap:.5rem;">
+              <input type="date" value="${date}" onchange="setDashAtt('date',this.value)" style="padding:.45rem .75rem;border:1.5px solid #e2e8f0;border-radius:10px;font-size:.82rem;outline:none;" />
+              <button class="btn btn-secondary" style="border-radius:10px;padding:.45rem .85rem;" onclick="setDashAtt('date','')">Today</button>
+              <button class="btn btn-primary" style="border-radius:10px;padding:.45rem .95rem;display:flex;align-items:center;gap:.4rem;" onclick="navigate('attendance')">
+                <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                Mark Attendance
+              </button>
+            </div>
+          </div>
+
+          <div style="padding:1.5rem;">
+            ${pend ? `
+              <div style="margin-bottom:1.2rem;padding:.75rem 1.1rem;background:#fffbeb;border:1px solid #fde68a;border-radius:12px;color:#92400e;font-size:.85rem;display:flex;gap:.75rem;align-items:center;justify-content:space-between;">
+                <div style="display:flex;align-items:center;gap:.5rem;">
+                  <span>⚠️</span>
+                  <span><strong>${pend} pending late attendance request${pend > 1 ? 's' : ''}</strong> awaiting review</span>
+                </div>
+                <button class="btn btn-edit" style="padding:.3rem .75rem;font-size:.78rem;border-radius:8px;" onclick="navigate('attendance')">Review Now</button>
+              </div>` : ''}
+
+            <!-- 4 Executive KPI Cards -->
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin-bottom:1.5rem;">
+              <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:1.1rem;display:flex;justify-content:space-between;align-items:center;">
+                <div>
+                  <div style="font-size:.78rem;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.02em;">Present Rate</div>
+                  <div style="font-size:1.6rem;font-weight:800;color:#0f172a;margin-top:.2rem;">${pct}%</div>
+                  <div style="font-size:.75rem;color:#059669;font-weight:600;margin-top:.15rem;">${totalAttended} of ${N} marked present</div>
+                </div>
+                <div style="width:44px;height:44px;border-radius:12px;background:#ecfdf5;color:#059669;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">✓</div>
+              </div>
+
+              <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:1.1rem;display:flex;justify-content:space-between;align-items:center;">
+                <div>
+                  <div style="font-size:.78rem;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.02em;">On-Time Staff</div>
+                  <div style="font-size:1.6rem;font-weight:800;color:#0f172a;margin-top:.2rem;">${presentCnt}</div>
+                  <div style="font-size:.75rem;color:#64748b;margin-top:.15rem;">Checked in before grace time</div>
+                </div>
+                <div style="width:44px;height:44px;border-radius:12px;background:#eff6ff;color:#2563eb;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">⏱️</div>
+              </div>
+
+              <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:1.1rem;display:flex;justify-content:space-between;align-items:center;">
+                <div>
+                  <div style="font-size:.78rem;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.02em;">Late / Exceptions</div>
+                  <div style="font-size:1.6rem;font-weight:800;color:${lateCnt > 0 ? '#d97706' : '#0f172a'};margin-top:.2rem;">${lateCnt}</div>
+                  <div style="font-size:.75rem;color:${lateCnt > 0 ? '#d97706' : '#64748b'};font-weight:500;margin-top:.15rem;">${lateCnt ? 'Arrived after 9:45 AM' : 'No late arrivals today'}</div>
+                </div>
+                <div style="width:44px;height:44px;border-radius:12px;background:#fffbeb;color:#d97706;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">⚠️</div>
+              </div>
+
+              <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:1.1rem;display:flex;justify-content:space-between;align-items:center;">
+                <div>
+                  <div style="font-size:.78rem;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.02em;">On Leave / OD</div>
+                  <div style="font-size:1.6rem;font-weight:800;color:#0f172a;margin-top:.2rem;">${leaveCnt + odCnt}</div>
+                  <div style="font-size:.75rem;color:#0891b2;font-weight:600;margin-top:.15rem;">${leaveCnt} on approved leave</div>
+                </div>
+                <div style="width:44px;height:44px;border-radius:12px;background:#ecfeff;color:#0891b2;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">🌴</div>
+              </div>
+            </div>
+
+            <!-- Two Columns: Left Roster Table + Right 7-Day Trend -->
+            <div style="display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1.1fr);gap:1.5rem;" class="att-dash-grid">
+              <!-- Left Column: Attendance Roster with Filter Tabs -->
+              <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;padding:1.2rem;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:.6rem;">
+                  <strong style="font-size:.95rem;color:#0f172a;">Daily Roster (${show.length})</strong>
+                  <div style="display:flex;gap:4px;background:#f1f5f9;padding:3px;border-radius:10px;">
+                    <button type="button" onclick="setDashAtt('f','all')" style="border:none;background:${f === 'all' ? '#fff' : 'transparent'};color:${f === 'all' ? '#0f172a' : '#64748b'};font-size:.75rem;font-weight:600;padding:.3rem .65rem;border-radius:7px;cursor:pointer;box-shadow:${f === 'all' ? '0 1px 3px rgba(0,0,0,0.06)' : 'none'};">All</button>
+                    <button type="button" onclick="setDashAtt('f','present')" style="border:none;background:${f === 'present' ? '#fff' : 'transparent'};color:${f === 'present' ? '#0f172a' : '#64748b'};font-size:.75rem;font-weight:600;padding:.3rem .65rem;border-radius:7px;cursor:pointer;box-shadow:${f === 'present' ? '0 1px 3px rgba(0,0,0,0.06)' : 'none'};">Present</button>
+                    <button type="button" onclick="setDashAtt('f','late')" style="border:none;background:${f === 'late' ? '#fff' : 'transparent'};color:${f === 'late' ? '#0f172a' : '#64748b'};font-size:.75rem;font-weight:600;padding:.3rem .65rem;border-radius:7px;cursor:pointer;box-shadow:${f === 'late' ? '0 1px 3px rgba(0,0,0,0.06)' : 'none'};">Late</button>
+                    <button type="button" onclick="setDashAtt('f','leave')" style="border:none;background:${f === 'leave' ? '#fff' : 'transparent'};color:${f === 'leave' ? '#0f172a' : '#64748b'};font-size:.75rem;font-weight:600;padding:.3rem .65rem;border-radius:7px;cursor:pointer;box-shadow:${f === 'leave' ? '0 1px 3px rgba(0,0,0,0.06)' : 'none'};">Leave</button>
+                    <button type="button" onclick="setDashAtt('f','exceptions')" style="border:none;background:${f === 'exceptions' ? '#fff' : 'transparent'};color:${f === 'exceptions' ? '#0f172a' : '#64748b'};font-size:.75rem;font-weight:600;padding:.3rem .65rem;border-radius:7px;cursor:pointer;box-shadow:${f === 'exceptions' ? '0 1px 3px rgba(0,0,0,0.06)' : 'none'};">Attention</button>
+                  </div>
+                </div>
+
+                <div class="table-wrap" style="max-height:360px;overflow-y:auto;border:1px solid #f1f5f9;border-radius:10px;">
+                  ${show.length ? `
+                    <table style="width:100%;border-collapse:collapse;">
+                      <thead>
+                        <tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0;text-align:left;font-size:.75rem;color:#475569;text-transform:uppercase;letter-spacing:.03em;">
+                          <th style="padding:.65rem .85rem;">Employee</th>
+                          <th style="padding:.65rem .85rem;">Status</th>
+                          <th style="padding:.65rem .85rem;">In Time</th>
+                          <th style="padding:.65rem .85rem;">Out Time</th>
+                          <th style="padding:.65rem .85rem;">Method</th>
+                        </tr>
+                      </thead>
+                      <tbody style="font-size:.85rem;">
+                        ${show.map(({ e, r }) => `
+                          <tr style="border-bottom:1px solid #f1f5f9;transition:background 0.15s;">
+                            <td style="padding:.7rem .85rem;">${empCell(e)}</td>
+                            <td style="padding:.7rem .85rem;">${r ? attBadge(r.status) : '<span class="badge pending">Not marked</span>'}</td>
+                            <td style="padding:.7rem .85rem;font-weight:600;color:#0f172a;">${r?.inTime ? to12h(r.inTime) : '<span style="color:#94a3b8;">—</span>'}</td>
+                            <td style="padding:.7rem .85rem;font-weight:600;color:#0f172a;">${r?.outTime ? to12h(r.outTime) : '<span style="color:#94a3b8;">—</span>'}</td>
+                            <td style="padding:.7rem .85rem;">${r?.method ? `<span class="badge" style="background:#f1f5f9;color:#475569;border-radius:6px;font-size:.7rem;padding:.2rem .5rem;">${r.method === 'face' ? 'Face ID' : r.method}</span>` : '<span style="color:#94a3b8;">—</span>'}</td>
+                          </tr>`).join('')}
+                      </tbody>
+                    </table>` : '<div class="empty-state" style="padding:2.5rem;text-align:center;color:#94a3b8;">No records found for this filter</div>'}
+                </div>
+              </div>
+
+              <!-- Right Column: 7-Day Trend Chart -->
+              <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;padding:1.2rem;display:flex;flex-direction:column;justify-content:space-between;">
+                <div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+                    <strong style="font-size:.95rem;color:#0f172a;">Weekly Attendance Trend</strong>
+                    <span style="font-size:.75rem;color:#059669;font-weight:600;background:#ecfdf5;padding:.2rem .6rem;border-radius:6px;">Avg 92%</span>
+                  </div>
+                  <div style="display:flex;gap:.5rem;justify-content:space-between;padding:1rem 0;background:#fafbfc;border-radius:12px;border:1px solid #f1f5f9;">
+                    ${trend}
+                  </div>
+                </div>
+
+                <div style="margin-top:1rem;padding-top:.85rem;border-top:1px solid #f1f5f9;display:flex;justify-content:space-around;font-size:.72rem;color:#64748b;">
+                  <span style="display:flex;align-items:center;gap:4px;"><i style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#10b981;"></i> On Time</span>
+                  <span style="display:flex;align-items:center;gap:4px;"><i style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#2563eb;"></i> Today</span>
+                  <span style="display:flex;align-items:center;gap:4px;"><i style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#d97706;"></i> Late</span>
+                  <span style="display:flex;align-items:center;gap:4px;"><i style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#0891b2;"></i> Leave</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>`;
+    }
     }
     function renderDashboard() { return renderAttDash() + renderDashboardBase(); }
 
@@ -3919,20 +4068,20 @@
     function svcTimeline(e, r) {
       const items = r.events.map(x => ({ date: x.date, title: x.type, note: x.note }));
       getResignations().filter(x => x.empId === e.id).forEach(x => {
-        items.push({ date: x.noticeDate, title: 'Resignation submitted', note: 'Last working date proposed: ' + formatDate(x.lastWorkingDate) + (x.reason ? ' Â· ' + x.reason : '') });
-        if (x.decidedAt) items.push({ date: x.decidedAt.slice(0, 10), title: 'Resignation ' + x.status, note: x.status === 'accepted' ? 'Approved last working date: ' + formatDate(x.approvedLWD || x.lastWorkingDate) + (x.hrRemarks ? ' Â· ' + x.hrRemarks : '') : (x.hrRemarks || '') });
+        items.push({ date: x.noticeDate, title: 'Resignation submitted', note: 'Last working date proposed: ' + formatDate(x.lastWorkingDate) + (x.reason ? ' · ' + x.reason : '') });
+        if (x.decidedAt) items.push({ date: x.decidedAt.slice(0, 10), title: 'Resignation ' + x.status, note: x.status === 'accepted' ? 'Approved last working date: ' + formatDate(x.approvedLWD || x.lastWorkingDate) + (x.hrRemarks ? ' · ' + x.hrRemarks : '') : (x.hrRemarks || '') });
       });
       return items.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
     }
     const svcTiles = v => [['Total Service', fmtS(v.total), '#2563eb'], ['Previous Service', fmtS(v.prev), '#7c3aed'], ['Current Service', v.exited ? 'Left' : fmtS(v.cur), v.exited ? '#dc2626' : '#059669'], ['Times Joined', v.st.length, '#d97706']]
       .map(([l, x, c]) => `<div style="border:1px solid var(--border);border-left:4px solid ${c};border-radius:10px;padding:.7rem .85rem"><div class="dept-tag" style="font-size:.74rem">${l}</div><div style="font-size:1.25rem;font-weight:700;color:${c}">${x}</div></div>`).join('');
-    const stintTable = (v, hr, empId) => `<div class="table-wrap" style="max-height:none"><table><thead><tr><th>#</th><th>Joined</th><th>Left</th><th>Service</th><th>Exit type / Remarks</th>${hr ? '<th></th>' : ''}</tr></thead><tbody>${v.st.map((x, i) => `<tr><td>${i + 1}</td><td>${formatDate(x.from)}${x.role ? `<div class="dept-tag">${esc(x.role)}</div>` : ''}</td><td>${x.to ? formatDate(x.to) : '<span class="badge active">In service</span>'}</td><td><strong>${fmtS(stintSvc(x, localISO()))}</strong></td><td class="dept-tag">${x.to ? esc(x.exitType || '') + (x.reason ? ' Â· ' + esc(x.reason) : '') : 'â€”'}</td>${hr ? `<td><button class="btn btn-edit" onclick="openStintEdit('${empId}','${x.id}')">Edit</button></td>` : ''}</tr>`).join('')}</tbody></table></div>`;
-    const timelineHtml = items => items.length ? `<div style="border-left:2px solid #cbd5e1;margin-left:.4rem;padding-left:1rem">${items.map(i => `<div style="margin-bottom:.8rem;position:relative"><span style="position:absolute;left:-1.37rem;top:.35rem;width:10px;height:10px;border-radius:50%;background:#2563eb"></span><div style="font-weight:600;font-size:.85rem">${esc(i.title)} <span class="dept-tag" style="font-weight:400">Â· ${formatDate(i.date)}</span></div>${i.note ? `<div class="dept-tag">${esc(i.note)}</div>` : ''}</div>`).join('')}</div>` : '<div class="empty-state">No events yet</div>';
+    const stintTable = (v, hr, empId) => `<div class="table-wrap" style="max-height:none"><table><thead><tr><th>#</th><th>Joined</th><th>Left</th><th>Service</th><th>Exit type / Remarks</th>${hr ? '<th></th>' : ''}</tr></thead><tbody>${v.st.map((x, i) => `<tr><td>${i + 1}</td><td>${formatDate(x.from)}${x.role ? `<div class="dept-tag">${esc(x.role)}</div>` : ''}</td><td>${x.to ? formatDate(x.to) : '<span class="badge active">In service</span>'}</td><td><strong>${fmtS(stintSvc(x, localISO()))}</strong></td><td class="dept-tag">${x.to ? esc(x.exitType || '') + (x.reason ? ' · ' + esc(x.reason) : '') : '—'}</td>${hr ? `<td><button class="btn btn-edit" onclick="openStintEdit('${empId}','${x.id}')">Edit</button></td>` : ''}</tr>`).join('')}</tbody></table></div>`;
+    const timelineHtml = items => items.length ? `<div style="border-left:2px solid #cbd5e1;margin-left:.4rem;padding-left:1rem">${items.map(i => `<div style="margin-bottom:.8rem;position:relative"><span style="position:absolute;left:-1.37rem;top:.35rem;width:10px;height:10px;border-radius:50%;background:#2563eb"></span><div style="font-weight:600;font-size:.85rem">${esc(i.title)} <span class="dept-tag" style="font-weight:400">· ${formatDate(i.date)}</span></div>${i.note ? `<div class="dept-tag">${esc(i.note)}</div>` : ''}</div>`).join('')}</div>` : '<div class="empty-state">No events yet</div>';
 
     function viewService(empId) {
       const reg = syncService(), e = findEmployee(empId); if (!e) return;
       const v = svcOf(e, reg);
-      perfModalShow(`Service Register â€“ ${esc(e.name)}`, `
+      perfModalShow(`Service Register — ${esc(e.name)}`, `
         <div style="display:flex;gap:.8rem;align-items:center;margin-bottom:1rem">${empCell(e)}<span class="badge ${v.exited ? 'inactive' : 'active'}">${v.exited ? 'Left on ' + formatDate(v.last.to) : 'In service'}</span></div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.7rem;margin-bottom:.6rem">${svcTiles(v)}</div><div class="dept-tag" style="margin-bottom:1rem;line-height:1.5">${gratuityEstimate(e, v)}</div>
         <strong style="font-size:.9rem">Service periods</strong><div style="margin:.4rem 0 1rem">${stintTable(v, true, empId)}</div>
@@ -3959,7 +4108,7 @@
     function openRejoin(empId) {
       if (!isHR()) return;
       const e = findEmployee(empId), last = getReg()[empId].stints.slice(-1)[0];
-      perfModalShow(`Rejoin â€“ ${esc(e.name)}`, `<div class="dept-tag" style="margin-bottom:.8rem;line-height:1.6">Last left on <strong>${formatDate(last.to)}</strong>. The previous service stays in the register and is added to the new service.</div>
+      perfModalShow(`Rejoin — ${esc(e.name)}`, `<div class="dept-tag" style="margin-bottom:.8rem;line-height:1.6">Last left on <strong>${formatDate(last.to)}</strong>. The previous service stays in the register and is added to the new service.</div>
         <div class="form-row"><div class="form-group"><label>Rejoining Date *</label><input type="date" id="rjDate" value="${localISO()}" min="${addDays(last.to, 1)}" /></div>
         <div class="form-group"><label>Status</label><select id="rjStat"><option value="probation">Probation</option><option value="active">Active</option></select></div></div>
         <div class="form-row"><div class="form-group"><label>Department</label><input id="rjDept" list="deptList" value="${esc(e.dept || '')}" /></div><div class="form-group"><label>Designation</label><input id="rjRole" value="${esc(e.role || '')}" /></div></div>
@@ -3973,10 +4122,10 @@
       const emps = getEmployees(), e = emps.find(q => q.id === empId);
       Object.assign(e, { status: rjStat.value, doj: date, relievingDate: '', dept: rjDept.value.trim(), role: rjRole.value.trim() }); setEmployees(emps);
       r.stints.push({ id: uid(), from: date, to: null, role: e.role, dept: e.dept });
-      r.events.push({ id: uid(), type: 'Rejoined', date, note: [e.role && 'As ' + e.role, rjRem.value.trim()].filter(Boolean).join(' Â· ') });
+      r.events.push({ id: uid(), type: 'Rejoined', date, note: [e.role && 'As ' + e.role, rjRem.value.trim()].filter(Boolean).join(' · ') });
       save(STORAGE_KEYS.service, reg);
       addActivity(`<strong>${esc(e.name)}</strong> rejoined the organization`, 'green');
-      closeModal('perfModal'); showToast('Employee rejoined â€“ previous service retained', 'success'); refreshCurrentPage();
+      closeModal('perfModal'); showToast('Employee rejoined — previous service retained', 'success'); refreshCurrentPage();
     }
     function setSvc(k, v) { if (k === 'f') svcFilter = v; else svcQ = v.trim().toLowerCase(); refreshCurrentPage(); }
     function exportServiceCSV() {
@@ -3995,11 +4144,11 @@
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.75rem;margin-bottom:1.25rem">
           ${tile('All Employees (ever)', all.length, '#0f172a', 'all')}${tile('In Service', inSvc.length, '#059669', 'in')}${tile('Left / Ex-employees', ex.length, '#dc2626', 'ex')}${tile('Rejoined', rj.length, '#d97706', 'rj')}
           <div style="border:1px solid var(--border);border-left:4px solid #2563eb;border-radius:10px;padding:.7rem .85rem;background:#fff"><div class="dept-tag" style="font-size:.74rem">Average Service</div><div style="font-size:1.4rem;font-weight:700;color:#2563eb">${fmtS({ y: Math.floor(avg / 12), m: Math.floor(avg % 12), d: 0 })}</div></div>
-          <div style="border:1px solid var(--border);border-left:4px solid #7c3aed;border-radius:10px;padding:.7rem .85rem;background:#fff"><div class="dept-tag" style="font-size:.74rem">Longest Serving</div><div style="font-size:1.1rem;font-weight:700;color:#7c3aed">${top ? esc(top.e.name) : 'â€”'}</div><div class="dept-tag">${top ? fmtS(top.v.total) : ''}</div></div>
+          <div style="border:1px solid var(--border);border-left:4px solid #7c3aed;border-radius:10px;padding:.7rem .85rem;background:#fff"><div class="dept-tag" style="font-size:.74rem">Longest Serving</div><div style="font-size:1.1rem;font-weight:700;color:#7c3aed">${top ? esc(top.e.name) : '—'}</div><div class="dept-tag">${top ? fmtS(top.v.total) : ''}</div></div>
         </div>
         <div class="card"><div class="card-header" style="flex-wrap:wrap;gap:.6rem"><h2>Service Register (${list.length})</h2>
           <div class="btn-group"><input placeholder="Search name or ID" value="${esc(svcQ)}" onchange="setSvc('q',this.value)" style="padding:.45rem .7rem;border:1px solid var(--border);border-radius:8px" /><select onchange="setSvc('f',this.value)" style="padding:.45rem .7rem;border:1px solid var(--border);border-radius:8px">${[['all', 'Everyone'], ['in', 'In service'], ['ex', 'Left'], ['rj', 'Rejoined']].map(([k, l]) => `<option value="${k}" ${svcFilter === k ? 'selected' : ''}>${l}</option>`).join('')}</select><button class="btn btn-secondary" onclick="exportServiceCSV()">Export CSV</button></div></div>
-          <div class="card-body table-wrap">${list.length ? `<table><thead><tr><th>Employee</th><th>First Joined</th><th>Joined</th><th>Previous Service</th><th>Current Service</th><th>Total Service</th><th>Status</th><th>Action</th></tr></thead><tbody>${list.map(({ e, v }) => `<tr><td>${empCell(e)}</td><td class="dept-tag">${formatDate(v.st[0].from)}</td><td>${v.st.length > 1 ? `<span class="badge probation">${v.st.length} times</span>` : '1 time'}</td><td>${v.st.length > 1 || v.exited ? fmtS(v.prev) : 'â€”'}</td><td>${v.exited ? 'â€”' : fmtS(v.cur)}</td><td><strong>${fmtS(v.total)}</strong></td>
+          <div class="card-body table-wrap">${list.length ? `<table><thead><tr><th>Employee</th><th>First Joined</th><th>Joined</th><th>Previous Service</th><th>Current Service</th><th>Total Service</th><th>Status</th><th>Action</th></tr></thead><tbody>${list.map(({ e, v }) => `<tr><td>${empCell(e)}</td><td class="dept-tag">${formatDate(v.st[0].from)}</td><td>${v.st.length > 1 ? `<span class="badge probation">${v.st.length} times</span>` : '1 time'}</td><td>${v.st.length > 1 || v.exited ? fmtS(v.prev) : '—'}</td><td>${v.exited ? '—' : fmtS(v.cur)}</td><td><strong>${fmtS(v.total)}</strong></td>
             <td>${v.exited ? `<span class="badge inactive">Left</span><div class="dept-tag">${formatDate(v.last.to)}</div>` : '<span class="badge active">In service</span>'}</td>
             <td><div class="btn-group" style="flex-wrap:nowrap"><button class="btn btn-edit" onclick="viewService('${e.id}')">View</button>${v.exited ? `<button class="btn btn-approve" onclick="openRejoin('${e.id}')">Rejoin</button>` : ''}</div></td></tr>`).join('')}</tbody></table>` : '<div class="empty-state">No employees match</div>'}</div></div>
         <p class="dept-tag" style="padding:1rem 0;line-height:1.6">Service counts the joining day and the last working day. Leaving is recorded automatically when an employee is marked Inactive, given a relieving date, or their accepted resignation's last working date passes. Use Rejoin to bring an ex-employee back: earlier service is kept and added to the new service.</p>`;
@@ -4008,7 +4157,7 @@
       const e = findEmployee(session?.empId); if (!e) return '';
       const reg = syncService(), v = svcOf(e, reg);
       return `<div class="card"><div class="card-header"><h2>My Service Record</h2><span class="badge ${v.exited ? 'inactive' : 'active'}">${v.exited ? 'Left' : 'In service'}</span></div><div style="padding:1.1rem 1.25rem">
-        <div class="dept-tag" style="margin-bottom:.8rem">${esc(e.role || '')}${e.dept ? ' Â· ' + esc(e.dept) : ''} Â· First joined ${formatDate(v.st[0].from)}</div>
+        <div class="dept-tag" style="margin-bottom:.8rem">${esc(e.role || '')}${e.dept ? ' · ' + esc(e.dept) : ''} · First joined ${formatDate(v.st[0].from)}</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.7rem;margin-bottom:1.1rem">${svcTiles(v)}</div>
         <strong style="font-size:.9rem">Service periods</strong><div style="margin:.4rem 0 1.1rem">${stintTable(v, false)}</div>
         <strong style="font-size:.9rem">Service log</strong><div style="margin-top:.6rem">${timelineHtml(svcTimeline(e, v.r))}</div></div></div>`;
@@ -4083,7 +4232,7 @@
       // Fingerprint cannot be used on this phone / browser -> take a photograph instead (if HR allows it)
       const fallback = why => {
         if (cfg.photoFallback === false) { showToast(why + '. Please contact HR.', 'error'); return false; }
-        bioFallbackAt = Date.now(); bioFallbackWhy = why; showToast(why + ' â€“ please take a photograph to mark attendance.'); return true;
+        bioFallbackAt = Date.now(); bioFallbackWhy = why; showToast(why + ' — please take a photograph to mark attendance.'); return true;
       };
       try {
         if (window.AndroidBio) {
@@ -4122,7 +4271,7 @@
       return `<div class="card"><div class="card-header" style="flex-wrap:wrap;gap:.6rem"><h2>Fingerprint Attendance (mobile biometric)</h2><div class="btn-group"><button class="btn btn-approve" onclick="setBioAll(true)">Enable for all</button><button class="btn btn-secondary" onclick="setBioAll(false)">Disable for all</button></div></div><div class="card-body" style="padding:1.25rem">
         <p class="dept-tag" style="margin-bottom:.8rem;line-height:1.6"><strong>${n} of ${emps.length}</strong> employees need a fingerprint. Switch it on only for the employees you choose; everyone else checks in normally (selfie + location). When on, the phone asks for the fingerprint (or face / screen lock) at Check In / Check Out; the first time, they register their phone. Works in the Android app, and in a mobile browser at <strong>https://hrms.rna-cs.com</strong> (not the IP address).</p>
         <label style="display:flex;gap:.5rem;align-items:center;font-size:.85rem;margin-bottom:1rem"><input type="checkbox" ${cfg.photoFallback === false ? '' : 'checked'} onchange="setBioFallback(this.checked)" style="width:17px;height:17px" /> If fingerprint is not available on the phone or browser, take a photograph instead (recorded as "Selfie (fingerprint unavailable)")</label>
-        <div class="table-wrap">${emps.length ? `<table><thead><tr><th>Employee</th><th style="text-align:center">Fingerprint required</th><th>Registered devices</th><th></th></tr></thead><tbody>${emps.map(e => `<tr><td>${empCell(e)}</td><td style="text-align:center"><input type="checkbox" ${on[e.id] ? 'checked' : ''} onchange="setBioEmp('${e.id}',this.checked)" style="width:18px;height:18px;cursor:pointer" /></td><td>${(all[e.id] || []).length ? (all[e.id] || []).map(c => `<div class="dept-tag">${esc(c.name)} Â· ${formatDate((c.at || '').slice(0, 10))}</div>`).join('') : '<span class="dept-tag">Not registered</span>'}</td><td>${(all[e.id] || []).length ? `<button class="btn btn-delete" onclick="resetBio('${e.id}')">Reset</button>` : ''}</td></tr>`).join('')}</tbody></table>` : '<div class="empty-state">No employees</div>'}</div></div></div>`;
+        <div class="table-wrap">${emps.length ? `<table><thead><tr><th>Employee</th><th style="text-align:center">Fingerprint required</th><th>Registered devices</th><th></th></tr></thead><tbody>${emps.map(e => `<tr><td>${empCell(e)}</td><td style="text-align:center"><input type="checkbox" ${on[e.id] ? 'checked' : ''} onchange="setBioEmp('${e.id}',this.checked)" style="width:18px;height:18px;cursor:pointer" /></td><td>${(all[e.id] || []).length ? (all[e.id] || []).map(c => `<div class="dept-tag">${esc(c.name)} · ${formatDate((c.at || '').slice(0, 10))}</div>`).join('') : '<span class="dept-tag">Not registered</span>'}</td><td>${(all[e.id] || []).length ? `<button class="btn btn-delete" onclick="resetBio('${e.id}')">Reset</button>` : ''}</td></tr>`).join('')}</tbody></table>` : '<div class="empty-state">No employees</div>'}</div></div></div>`;
     }
 
 
@@ -4132,13 +4281,13 @@
     const csvq = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
     function openStat(empId) {
       const e = findEmployee(empId), t = getStat()[empId] || {}, f = (id, l, v, ph = '') => `<div class="form-group"><label>${l}</label><input id="${id}" value="${esc(v || '')}" placeholder="${ph}" /></div>`;
-      perfModalShow(`Statutory & bank details â€“ ${esc(e.name)}`, `
+      perfModalShow(`Statutory & bank details — ${esc(e.name)}`, `
         <div class="form-row">${f('stUAN', 'UAN (PF)', t.uan, '12 digits')}${f('stESI', 'ESI IP number', t.esi, '17 digits')}</div>
         <div class="form-row">${f('stPAN', 'PAN', t.pan, 'ABCDE1234F')}${f('stBank', 'Bank name', t.bank)}</div>
         <div class="form-row">${f('stAcc', 'Bank account no.', t.acc)}${f('stIFSC', 'IFSC', t.ifsc)}</div>
         <label style="display:flex;gap:.45rem;align-items:center;font-size:.85rem;margin-top:.4rem"><input type="checkbox" id="stPfOff" ${t.pfOff ? 'checked' : ''} /> PF not applicable (excluded employee / not a member)</label>
         <label style="display:flex;gap:.45rem;align-items:center;font-size:.85rem;margin-top:.4rem"><input type="checkbox" id="stEsiOff" ${t.esiOff ? 'checked' : ''} /> ESI not applicable</label>
-        <label style="display:flex;gap:.45rem;align-items:center;font-size:.85rem;margin-top:.4rem"><input type="checkbox" id="stDis" ${t.disabled ? 'checked' : ''} /> Person with disability (ESI limit â‚¹25,000)</label>`,
+        <label style="display:flex;gap:.45rem;align-items:center;font-size:.85rem;margin-top:.4rem"><input type="checkbox" id="stDis" ${t.disabled ? 'checked' : ''} /> Person with disability (ESI limit ₹25,000)</label>`,
         `<button class="btn btn-secondary" onclick="closeModal('perfModal')">Cancel</button><button class="btn btn-primary" onclick="saveStat('${empId}')">Save</button>`);
     }
     function saveStat(empId) {
@@ -4167,23 +4316,23 @@
       const withCtc = getEmployees().filter(e => e.status !== 'inactive' && (getCTCs()[e.id] || 0) > 0), bad50 = withCtc.filter(e => { const s = structure(getCTCs()[e.id]); return s.basic < 0.5 * (s.ctc - s.erEpf - s.grat) - 1; });
       const missUAN = rows.filter(r => r.pfWages > 0 && !(st[r.empId] || {}).uan).length, missESI = rows.filter(r => r.esiWages > 0 && !(st[r.empId] || {}).esi).length, missBank = rows.filter(r => r.payable > 0 && !(st[r.empId] || {}).acc).length;
       const chk = (ok, t) => `<div style="font-size:.82rem;margin:.25rem 0">${ok ? 'âœ…' : 'âš ï¸'} ${t}</div>`, box = (k, l, on) => `<label style="display:flex;gap:.5rem;align-items:center;font-size:.85rem;margin:.35rem 0"><input type="checkbox" ${on ? 'checked' : ''} onchange="setPayCfg('${k}',this.checked)" style="width:17px;height:17px" /> ${l}</label>`;
-      return `<div class="card" style="margin-top:1.25rem"><div class="card-header" style="flex-wrap:wrap;gap:.6rem"><h2>Statutory Compliance â€“ India / Telangana</h2><div class="btn-group"><button class="btn btn-secondary" onclick="exportECR()">PF ECR file</button><button class="btn btn-secondary" onclick="exportESI()">ESI file</button><button class="btn btn-secondary" onclick="exportPT()">PT list</button><button class="btn btn-secondary" onclick="exportBank()">Bank advice</button></div></div>
+      return `<div class="card" style="margin-top:1.25rem"><div class="card-header" style="flex-wrap:wrap;gap:.6rem"><h2>Statutory Compliance — India / Telangana</h2><div class="btn-group"><button class="btn btn-secondary" onclick="exportECR()">PF ECR file</button><button class="btn btn-secondary" onclick="exportESI()">ESI file</button><button class="btn btn-secondary" onclick="exportPT()">PT list</button><button class="btn btn-secondary" onclick="exportBank()">Bank advice</button></div></div>
         <div style="padding:1.1rem 1.25rem;display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.4rem">
           <div><strong style="font-size:.9rem">Payable for ${monthLabel(payMonth)}</strong>
             <table style="margin-top:.5rem"><tbody>
               <tr><td>Provident Fund</td><td class="num"><strong>${inr(pfEe + pfEr)}</strong></td><td class="dept-tag">by 15 ${nxt.split(' ')[0]}</td></tr>
-              <tr><td class="dept-tag" colspan="3">Employee ${inr(pfEe)} Â· Employer EPF ${inr(sum('erEpfShare'))} + EPS ${inr(sum('eps'))} Â· EDLI ${inr(sum('edli'))} Â· Admin ${inr(sum('pfAdmin'))}</td></tr>
+              <tr><td class="dept-tag" colspan="3">Employee ${inr(pfEe)} · Employer EPF ${inr(sum('erEpfShare'))} + EPS ${inr(sum('eps'))} · EDLI ${inr(sum('edli'))} · Admin ${inr(sum('pfAdmin'))}</td></tr>
               <tr><td>ESI</td><td class="num"><strong>${inr(esi)}</strong></td><td class="dept-tag">by 15 ${nxt.split(' ')[0]}</td></tr>
               <tr><td>Professional Tax (Telangana)</td><td class="num"><strong>${inr(sum('pt'))}</strong></td><td class="dept-tag">by 10 ${nxt.split(' ')[0]}</td></tr>
               <tr><td>TDS on salary</td><td class="num"><strong>${inr(sum('tds'))}</strong></td><td class="dept-tag">by 7 ${nxt.split(' ')[0]}</td></tr>
               ${cfg.lwfOn && payMonth.slice(5) === '12' ? `<tr><td>Labour Welfare Fund</td><td class="num"><strong>${inr(sum('lwfEe') + sum('lwfEr'))}</strong></td><td class="dept-tag">by 31 Jan</td></tr>` : ''}
             </tbody></table></div>
           <div><strong style="font-size:.9rem">Settings</strong>
-            ${box('pfOnActual', `PF on actual Basic (above the â‚¹${ceil.toLocaleString('en-IN')} ceiling, voluntary). Untick = PF capped at the ceiling`, cfg.pfOnActual)}
-            ${box('edliOn', 'Employer EDLI 0.5%', cfg.edliOn)}${box('ctcAdmin', 'EDLI + PF admin charges inside CTC (lowers Special Allowance)', cfg.ctcAdmin)}${box('esiOn', 'ESI applicable (gross up to â‚¹21,000: 0.75% employee + 3.25% employer)', cfg.esiOn)}${box('lwfOn', 'Telangana Labour Welfare Fund (â‚¹2 employee + â‚¹5 employer, deducted in December)', cfg.lwfOn)}
-            <div class="dept-tag" style="margin-top:.5rem;line-height:1.5">PF wage ceiling: â‚¹25,000 from 17 Sep 2026 (â‚¹15,000 before; September 2026 is pro-rated to â‚¹${pfCeiling('2026-09').toLocaleString('en-IN')}).</div></div>
+            ${box('pfOnActual', `PF on actual Basic (above the ₹${ceil.toLocaleString('en-IN')} ceiling, voluntary). Untick = PF capped at the ceiling`, cfg.pfOnActual)}
+            ${box('edliOn', 'Employer EDLI 0.5%', cfg.edliOn)}${box('ctcAdmin', 'EDLI + PF admin charges inside CTC (lowers Special Allowance)', cfg.ctcAdmin)}${box('esiOn', 'ESI applicable (gross up to ₹21,000: 0.75% employee + 3.25% employer)', cfg.esiOn)}${box('lwfOn', 'Telangana Labour Welfare Fund (₹2 employee + ₹5 employer, deducted in December)', cfg.lwfOn)}
+            <div class="dept-tag" style="margin-top:.5rem;line-height:1.5">PF wage ceiling: ₹25,000 from 17 Sep 2026 (₹15,000 before; September 2026 is pro-rated to ₹${pfCeiling('2026-09').toLocaleString('en-IN')}).</div></div>
           <div><strong style="font-size:.9rem">Checks</strong>
-            ${chk(!bad50.length, bad50.length ? `Basic is below 50% of remuneration for ${bad50.length} employee(s) â€“ Labour Codes wage rule` : 'Basic â‰¥ 50% of remuneration for all employees (Labour Codes)')}
+            ${chk(!bad50.length, bad50.length ? `Basic is below 50% of remuneration for ${bad50.length} employee(s) — Labour Codes wage rule` : 'Basic â‰¥ 50% of remuneration for all employees (Labour Codes)')}
             ${chk(!missUAN, missUAN ? `${missUAN} PF member(s) have no UAN` : 'UAN present for all PF members')}${chk(!missESI, missESI ? `${missESI} ESI member(s) have no IP number` : 'ESI numbers present')}${chk(!missBank, missBank ? `${missBank} employee(s) have no bank account` : 'Bank details present')}
             <div class="dept-tag" style="margin-top:.5rem;line-height:1.5">Optional modules (statutory bonus, overtime, minimum-wage check, leave encashment, full &amp; final, Form 130/16 and 138/24Q) are under Statutory Modules and stay off until an admin activates them.</div></div>
         </div></div>`;
@@ -4192,11 +4341,11 @@
       const r = payRowsNow().find(x => x.empId === empId), e = findEmployee(empId); if (!r || !e) return;
       const t = getStat()[empId] || {}, dim = new Date(+payMonth.slice(0, 4), +payMonth.slice(5, 7), 0).getDate(), row = (a, b) => `<tr><td>${a}</td><td class="num">${inr(b)}</td></tr>`;
       document.getElementById('letterTitle').textContent = 'Payslip';
-      document.getElementById('letterPaper').innerHTML = letterHead() + `<p style="text-align:center;font-weight:700;margin:.4rem 0">PAYSLIP â€“ ${monthLabel(payMonth)}</p>
-        <table class="l-table"><tbody><tr><td><strong>${esc(e.name)}</strong> (${esc(e.empCode || '')})<br>${esc(e.role || '')}, ${esc(e.dept || '')}<br>Date of joining: ${formatDate(e.doj)}</td><td>UAN: ${esc(t.uan || 'â€”')}<br>ESI No.: ${esc(t.esi || 'â€”')}<br>PAN: ${esc(t.pan || 'â€”')}<br>Bank A/c: ${esc(t.acc || 'â€”')}</td><td>Days in month: ${dim}<br>Loss of pay days: ${r.unpaidDays || 0}<br>Days paid: ${dim - Math.round(r.unpaidDays || 0)}</td></tr></tbody></table>
+      document.getElementById('letterPaper').innerHTML = letterHead() + `<p style="text-align:center;font-weight:700;margin:.4rem 0">PAYSLIP — ${monthLabel(payMonth)}</p>
+        <table class="l-table"><tbody><tr><td><strong>${esc(e.name)}</strong> (${esc(e.empCode || '')})<br>${esc(e.role || '')}, ${esc(e.dept || '')}<br>Date of joining: ${formatDate(e.doj)}</td><td>UAN: ${esc(t.uan || '—')}<br>ESI No.: ${esc(t.esi || '—')}<br>PAN: ${esc(t.pan || '—')}<br>Bank A/c: ${esc(t.acc || '—')}</td><td>Days in month: ${dim}<br>Loss of pay days: ${r.unpaidDays || 0}<br>Days paid: ${dim - Math.round(r.unpaidDays || 0)}</td></tr></tbody></table>
         <table class="l-table" style="margin-top:.6rem"><thead><tr><th>Earnings</th><th class="num">Amount</th></tr></thead><tbody>${row('Basic Salary', r.basic)}${row('House Rent Allowance', r.hra)}${row('Conveyance / Transport', r.conv)}${row('Special Allowance', r.special)}${r.lop ? row('Less: Loss of pay', -r.lop) : ''}${r.exOt ? row('Overtime (' + r.exOtHrs + ' h at 2x rate)', r.exOt) : ''}${r.exBonus ? row('Statutory bonus', r.exBonus) : ''}${r.exEnc ? row('Leave encashment', r.exEnc) : ''}${r.exArr ? row('Arrears', r.exArr) : ''}<tr class="tot"><td>Gross earnings</td><td class="num">${inr(r.earned + (r.extra || 0))}</td></tr></tbody></table>
         <table class="l-table" style="margin-top:.6rem"><thead><tr><th>Deductions</th><th class="num">Amount</th></tr></thead><tbody>${row('Provident Fund (employee)', r.eeEpf)}${r.esiEe ? row('ESI (employee)', r.esiEe) : ''}${row('Professional Tax (Telangana)', r.pt)}${row('Income Tax (TDS)', r.tds + (r.tdsX || 0))}${r.exArrDed ? row('PF / ESI on arrears', r.exArrDed) : ''}${r.lwfEe ? row('Labour Welfare Fund', r.lwfEe) : ''}<tr class="tot"><td>Total deductions</td><td class="num">${inr(r.eeEpf + (r.esiEe || 0) + r.pt + r.tds + (r.tdsX || 0) + (r.exArrDed || 0) + (r.lwfEe || 0))}</td></tr><tr class="tot"><td>NET PAY</td><td class="num">${inr(r.net)}</td></tr></tbody></table>
-        <p class="l-note">Employer contributions (not deducted): EPF ${inr(r.erEpfShare || 0)} Â· EPS ${inr(r.eps || 0)} Â· EDLI ${inr(r.edli || 0)}${r.esiEr ? ' Â· ESI ' + inr(r.esiEr) : ''}. This is a computer-generated payslip.</p>`;
+        <p class="l-note">Employer contributions (not deducted): EPF ${inr(r.erEpfShare || 0)} · EPS ${inr(r.eps || 0)} · EDLI ${inr(r.edli || 0)}${r.esiEr ? ' · ESI ' + inr(r.esiEr) : ''}. This is a computer-generated payslip.</p>`;
       document.getElementById('letterAcceptBtn').style.display = 'none'; openModal('letterModal');
     }
     function gratuityEstimate(e, v) {   // Payment of gratuity: 15 days' wages per completed year (6+ months rounds up), 5 years' continuous service, cap Rs 20 lakh
@@ -4208,7 +4357,7 @@
 
     // ========== STATUTORY MODULES (off by default; an admin activates / revokes with credentials) ==========
     const MODS = [
-      ['bonus', 'Statutory Bonus', 'Annual bonus for employees whose monthly wages are up to â‚¹21,000: 8.33% to 20% of wages, wage ceiling â‚¹7,000 or the minimum wage if higher.'],
+      ['bonus', 'Statutory Bonus', 'Annual bonus for employees whose monthly wages are up to ₹21,000: 8.33% to 20% of wages, wage ceiling ₹7,000 or the minimum wage if higher.'],
       ['ot', 'Overtime at double rate', 'Overtime hours paid at twice the normal hourly rate of wages (Basic Ã· 30 Ã· daily hours Ã— 2) and added to that month\'s pay.'],
       ['minwage', 'Minimum-wage check', 'Flags employees paid below the Telangana minimum wage that you enter from the Labour Department notification.'],
       ['encash', 'Leave encashment', 'Pays accrued leave in cash at Basic Ã· 30 per day, added to a chosen payroll month.'],
@@ -4229,7 +4378,7 @@
     const otRate = basic => basic / 30 / Math.max(1, officeCfg().dailyMin / 60) * 2;
     const mLocked = m => !!getPayruns()[m];
     const mi = 'padding:.45rem .6rem;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:.85rem';
-    const empOpts = (list, cur) => list.map(e => `<option value="${e.id}" ${e.id === cur ? 'selected' : ''}>${esc(e.empCode ? e.empCode + ' â€“ ' : '')}${esc(e.name)}</option>`).join('');
+    const empOpts = (list, cur) => list.map(e => `<option value="${e.id}" ${e.id === cur ? 'selected' : ''}>${esc(e.empCode ? e.empCode + ' — ' : '')}${esc(e.name)}</option>`).join('');
     const pcard = (title, body, right = '') => `<div class="card" style="margin-top:1.25rem"><div class="card-header"><h2>${title}</h2>${right}</div><div class="card-body" style="padding:1rem 1.25rem;overflow-x:auto">${body}</div></div>`;
     const showDoc = (title, html) => { document.getElementById('letterTitle').textContent = title; document.getElementById('letterPaper').innerHTML = letterHead() + html; document.getElementById('letterAcceptBtn').style.display = 'none'; openModal('letterModal'); };
     const fyOf = iso => { const y = +iso.slice(0, 4), m = +iso.slice(5, 7), s = m >= 4 ? y : y - 1; return s + '-' + String((s + 1) % 100).padStart(2, '0'); };
@@ -4301,9 +4450,9 @@
         const eligible = basic > 0 && basic <= 21000 && worked.length > 0, done = getPayouts().find(p => p.empId === e.id && p.kind === 'bonus' && p.fy === modFY);
         return { e, n: worked.length, base, eligible, amt: eligible ? Math.round(base * c.bonusPct / 100) : 0, done };
       }).filter(r => r.eligible || r.done);
-      const body = `<div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin-bottom:.8rem"><span class="dept-tag">Year</span>${mySel('mFY', fyList(), modFY, 'setModFY(this.value)')}<span class="dept-tag">Bonus %</span><input id="mcPct" type="number" step="0.01" min="8.33" max="20" value="${c.bonusPct}" style="${mi};width:80px" /><span class="dept-tag">Wage ceiling â‚¹</span><input id="mcCeil" type="number" value="${c.bonusCeil}" style="${mi};width:90px" /><button class="btn btn-secondary" onclick="saveModCfg()">Save</button><span class="dept-tag">Pay in</span><input type="month" value="${modMonth}" onchange="setModMonth(this.value)" style="${mi}" /></div>
-        <div class="dept-tag" style="line-height:1.6;margin-bottom:.6rem">Based on processed payroll months of ${modFY}. Eligible: Basic up to â‚¹21,000 a month and at least one paid month. Use the higher of â‚¹7,000 or the Telangana minimum wage as the ceiling. Bonus is payable within 8 months of year end.</div>
-        ${rows.length ? `<div class="table-wrap"><table><thead><tr><th>Employee</th><th>Months paid</th><th>Bonus wage base</th><th>Bonus</th><th></th></tr></thead><tbody>${rows.map(r => `<tr><td>${empCell(r.e)}</td><td>${r.n}</td><td>${inr(r.base)}</td><td>${inr(r.done ? r.done.amount : r.amt)}</td><td>${r.done ? `<span class="dept-tag">Added to ${monthLabel(r.done.month)}</span>` : `<button class="btn btn-approve" onclick="addBonus('${r.e.id}',${r.amt})">Add to payroll</button>`}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty-state">No employee with Basic up to â‚¹21,000 and processed payroll in this year.</div>'}`;
+      const body = `<div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin-bottom:.8rem"><span class="dept-tag">Year</span>${mySel('mFY', fyList(), modFY, 'setModFY(this.value)')}<span class="dept-tag">Bonus %</span><input id="mcPct" type="number" step="0.01" min="8.33" max="20" value="${c.bonusPct}" style="${mi};width:80px" /><span class="dept-tag">Wage ceiling ₹</span><input id="mcCeil" type="number" value="${c.bonusCeil}" style="${mi};width:90px" /><button class="btn btn-secondary" onclick="saveModCfg()">Save</button><span class="dept-tag">Pay in</span><input type="month" value="${modMonth}" onchange="setModMonth(this.value)" style="${mi}" /></div>
+        <div class="dept-tag" style="line-height:1.6;margin-bottom:.6rem">Based on processed payroll months of ${modFY}. Eligible: Basic up to ₹21,000 a month and at least one paid month. Use the higher of ₹7,000 or the Telangana minimum wage as the ceiling. Bonus is payable within 8 months of year end.</div>
+        ${rows.length ? `<div class="table-wrap"><table><thead><tr><th>Employee</th><th>Months paid</th><th>Bonus wage base</th><th>Bonus</th><th></th></tr></thead><tbody>${rows.map(r => `<tr><td>${empCell(r.e)}</td><td>${r.n}</td><td>${inr(r.base)}</td><td>${inr(r.done ? r.done.amount : r.amt)}</td><td>${r.done ? `<span class="dept-tag">Added to ${monthLabel(r.done.month)}</span>` : `<button class="btn btn-approve" onclick="addBonus('${r.e.id}',${r.amt})">Add to payroll</button>`}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty-state">No employee with Basic up to ₹21,000 and processed payroll in this year.</div>'}`;
       return pcard('Statutory Bonus', body);
     }
     function addBonus(empId, amt) {
@@ -4334,7 +4483,7 @@
     function minWagePanel() {
       const c = modCfg(), emps = getEmployees().filter(e => e.status !== 'inactive'), rows = emps.map(e => { const s = structure(getCTCs()[e.id] || 0); return { e, s, low: c.minWage > 0 && s.gross > 0 && s.gross < c.minWage }; });
       const low = rows.filter(r => r.low).length;
-      const body = `<div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin-bottom:.8rem"><span class="dept-tag">Minimum wage per month â‚¹</span><input id="mcMin" type="number" min="0" value="${c.minWage || ''}" style="${mi};width:110px" /><button class="btn btn-secondary" onclick="saveModCfg()">Save</button></div>
+      const body = `<div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin-bottom:.8rem"><span class="dept-tag">Minimum wage per month ₹</span><input id="mcMin" type="number" min="0" value="${c.minWage || ''}" style="${mi};width:110px" /><button class="btn btn-secondary" onclick="saveModCfg()">Save</button></div>
         <div class="dept-tag" style="line-height:1.6;margin-bottom:.6rem">Enter the current Telangana minimum wage for your scheduled employment and zone from the Labour Department notification (it changes with the variable dearness allowance). Gross monthly pay is compared against it.</div>
         ${c.minWage > 0 ? `<div style="margin-bottom:.6rem;font-weight:600;color:${low ? '#dc2626' : '#16a34a'}">${low ? low + ' employee(s) below the minimum wage' : 'All employees at or above the minimum wage'}</div><div class="table-wrap"><table><thead><tr><th>Employee</th><th>Basic</th><th>Gross / month</th><th>Status</th></tr></thead><tbody>${rows.map(r => `<tr><td>${empCell(r.e)}</td><td>${inr(r.s.basic)}</td><td>${inr(r.s.gross)}</td><td>${r.s.gross ? (r.low ? '<span class="badge rejected">Below minimum</span>' : '<span class="badge approved">OK</span>') : '<span class="dept-tag">No CTC set</span>'}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty-state">Enter the minimum wage to run the check.</div>'}`;
       return pcard('Minimum-wage check', body);
@@ -4373,15 +4522,15 @@
       return { e, lwd, y, m, basic: s.basic, grat, leave, notice, other: v.other, recov: v.recov, tds, days: v.days, noticeDays: v.noticeDays, net: leave + grat + v.other - notice - v.recov - tds };
     }
     function fnfTable(c) {
-      const row = (a, b, neg) => `<tr><td>${a}</td><td class="num">${neg ? 'âˆ’ ' : ''}${inr(b)}</td></tr>`;
-      return `<table class="l-table"><thead><tr><th>Item</th><th class="num">Amount</th></tr></thead><tbody>${row(`Leave encashment (${c.days} day(s) Ã— Basic Ã· 30)`, c.leave)}${row('Gratuity' + (c.y >= 5 ? ` (Basic Ã· 26 Ã— 15 Ã— ${c.y + (c.m >= 6 ? 1 : 0)} yrs)` : ` (not payable: ${c.y} yr ${c.m} m service, needs 5 years)`), c.grat)}${row('Other earnings', c.other)}${row(`Notice-period shortfall recovery (${c.noticeDays} day(s))`, c.notice, 1)}${row('Other recoveries / dues', c.recov, 1)}${row('Income tax (TDS) on taxable part', c.tds, 1)}<tr class="tot"><td>NET FULL &amp; FINAL PAYABLE</td><td class="num">${inr(c.net)}</td></tr></tbody></table>`;
+      const row = (a, b, neg) => `<tr><td>${a}</td><td class="num">${neg ? '-' : ''}${inr(b)}</td></tr>`;
+      return `<table class="l-table"><thead><tr><th>Item</th><th class="num">Amount</th></tr></thead><tbody>${row(`Leave encashment (${c.days} day(s) × Basic / 30)`, c.leave)}${row('Gratuity' + (c.y >= 5 ? ` (Basic / 26 × 15 × ${c.y + (c.m >= 6 ? 1 : 0)} yrs)` : ` (not payable: ${c.y} yr ${c.m} m service, needs 5 years)`), c.grat)}${row('Other earnings', c.other)}${row(`Notice-period shortfall recovery (${c.noticeDays} day(s))`, c.notice, 1)}${row('Other recoveries / dues', c.recov, 1)}${row('Income tax (TDS) on taxable part', c.tds, 1)}<tr class="tot"><td>NET FULL &amp; FINAL PAYABLE</td><td class="num">${inr(c.net)}</td></tr></tbody></table>`;
     }
     function fnfRefresh() { fnfEmp = document.getElementById('fnEmp').value; const o = document.getElementById('fnOut'); if (o) o.innerHTML = fnfEmp ? (findEmployee(fnfEmp) && !fnfCalc(fnfEmp, fnfInputs()).lwd ? '<div class="dept-tag">Set the last working date (resignation) or relieving date first.</div>' : fnfTable(fnfCalc(fnfEmp, fnfInputs()))) : ''; }
     function fnfPanel() {
       const emps = fnfEmps(), list = getFnf().slice(0, 20), inp = (id, ph, w = 100) => `<input id="${id}" type="number" min="0" placeholder="${ph}" oninput="fnfRefresh()" style="${mi};width:${w}px" />`;
       if (fnfEmp && !emps.some(e => e.id === fnfEmp)) fnfEmp = '';
-      const body = `<div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin-bottom:.8rem"><select id="fnEmp" onchange="fnfRefresh()" style="${mi}"><option value="">Select exiting employee</option>${empOpts(emps, fnfEmp)}</select>${inp('fnDays', 'Leave days')}${inp('fnOther', 'Other earnings â‚¹', 120)}${inp('fnNotice', 'Notice shortfall days', 140)}${inp('fnRecov', 'Other dues â‚¹', 110)}${inp('fnTds', 'TDS â‚¹ (auto)', 110)}<button class="btn btn-primary" onclick="fnfSave()">Save settlement</button></div>
-        <div class="dept-tag" style="line-height:1.6;margin-bottom:.6rem">Salary up to the last working day is paid in the normal payroll run (pro-rata). Gratuity needs 5 years of continuous service (cap â‚¹20 lakh), leave encashment on resignation is exempt up to â‚¹25 lakh, and the TDS shown is an estimate you can overwrite.</div>
+      const body = `<div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin-bottom:.8rem"><select id="fnEmp" onchange="fnfRefresh()" style="${mi}"><option value="">Select exiting employee</option>${empOpts(emps, fnfEmp)}</select>${inp('fnDays', 'Leave days')}${inp('fnOther', 'Other earnings ₹', 120)}${inp('fnNotice', 'Notice shortfall days', 140)}${inp('fnRecov', 'Other dues ₹', 110)}${inp('fnTds', 'TDS ₹ (auto)', 110)}<button class="btn btn-primary" onclick="fnfSave()">Save settlement</button></div>
+        <div class="dept-tag" style="line-height:1.6;margin-bottom:.6rem">Salary up to the last working day is paid in the normal payroll run (pro-rata). Gratuity needs 5 years of continuous service (cap ₹20 lakh), leave encashment on resignation is exempt up to ₹25 lakh, and the TDS shown is an estimate you can overwrite.</div>
         <div id="fnOut">${fnfEmp ? fnfTable(fnfCalc(fnfEmp, { days: 0, other: 0, noticeDays: 0, recov: 0, tds: null })) : ''}</div>
         ${list.length ? `<div class="table-wrap" style="margin-top:1rem"><table><thead><tr><th>Employee</th><th>Last working day</th><th>Net payable</th><th>Status</th><th></th></tr></thead><tbody>${list.map(f => `<tr><td>${empCell(findEmployee(f.empId))}</td><td class="dept-tag">${formatDate(f.lwd)}</td><td>${inr(f.net)}</td><td><span class="badge ${f.paid ? 'approved' : 'pending'}">${f.paid ? 'Paid ' + formatDate(f.paidOn) : 'Pending'}</span></td><td><div class="btn-group" style="flex-wrap:nowrap"><button class="btn btn-secondary" onclick="fnfPrint('${f.id}')">Statement</button>${f.paid ? '' : `<button class="btn btn-approve" onclick="fnfPaid('${f.id}')">Mark paid</button>`}<button class="btn btn-delete" onclick="fnfDel('${f.id}')">Delete</button></div></td></tr>`).join('')}</tbody></table></div>` : ''}`;
       return pcard('Full & Final settlement', body);
@@ -4398,7 +4547,7 @@
     function fnfPrint(id) {
       const f = getFnf().find(x => x.id === id); if (!f || !modOn('fnf') || !(isHR() || f.empId === session?.empId)) return;
       const e = findEmployee(f.empId), c = { ...f.calc, e };
-      showDoc('Full & Final Settlement', `<p style="text-align:center;font-weight:700;margin:.4rem 0">FULL &amp; FINAL SETTLEMENT STATEMENT</p><p><strong>${esc(e.name)}</strong> (${esc(e.empCode || '')}) â€“ ${esc(e.role || '')}, ${esc(e.dept || '')}<br>Date of joining: ${formatDate(e.doj)} Â· Last working day: ${formatDate(f.lwd)} Â· Service: ${c.y} yr ${c.m} m<br>Last drawn Basic: ${inr(c.basic)}</p>${fnfTable(c)}<p class="l-note">${f.paid ? 'Paid on ' + formatDate(f.paidOn) + '. ' : ''}This is a computer-generated statement.</p>`);
+      showDoc('Full & Final Settlement', `<p style="text-align:center;font-weight:700;margin:.4rem 0">FULL &amp; FINAL SETTLEMENT STATEMENT</p><p><strong>${esc(e.name)}</strong> (${esc(e.empCode || '')}) — ${esc(e.role || '')}, ${esc(e.dept || '')}<br>Date of joining: ${formatDate(e.doj)} · Last working day: ${formatDate(f.lwd)} · Service: ${c.y} yr ${c.m} m<br>Last drawn Basic: ${inr(c.basic)}</p>${fnfTable(c)}<p class="l-note">${f.paid ? 'Paid on ' + formatDate(f.paidOn) + '. ' : ''}This is a computer-generated statement.</p>`);
     }
 
     // ---- Form 16 / 130 and 24Q / 138
@@ -4412,7 +4561,7 @@
       const e = findEmployee(empId), t = taxCert(empId, fy), t0 = (getStat()[empId] || {}), f = tdsForms(fy), row = (a, b) => `<tr><td>${a}</td><td class="num">${inr(b)}</td></tr>`;
       if (!t.d.length) { showToast('No processed payroll for this year', 'error'); return; }
       const q = [0, 1, 2, 3].map(i => t.d.filter(x => fyMonths(fy).indexOf(x.m) >= i * 3 && fyMonths(fy).indexOf(x.m) < i * 3 + 3).reduce((s, x) => s + (x.r.tds || 0) + (x.r.tdsX || 0), 0));
-      showDoc(f[0] + ' â€“ Part B working', `<p style="text-align:center;font-weight:700;margin:.4rem 0">${f[0].toUpperCase()} â€“ SALARY TDS WORKING (FY ${fy}) â€“ DRAFT</p><p><strong>${esc(e.name)}</strong> (${esc(e.empCode || '')}) Â· PAN: ${esc(t0.pan || 'â€”')}<br>Tax regime: ${t.regime}</p>
+      showDoc(f[0] + ' — Part B working', `<p style="text-align:center;font-weight:700;margin:.4rem 0">${f[0].toUpperCase()} — SALARY TDS WORKING (FY ${fy}) — DRAFT</p><p><strong>${esc(e.name)}</strong> (${esc(e.empCode || '')}) · PAN: ${esc(t0.pan || '—')}<br>Tax regime: ${t.regime}</p>
         <table class="l-table"><thead><tr><th>Computation</th><th class="num">Amount</th></tr></thead><tbody>${row('Gross salary paid in the year', t.gross)}${row('Less: standard deduction', -t.std)}${t.other ? row('Less: HRA, deductions and PT (old regime, as declared)', -t.other) : ''}<tr class="tot"><td>Taxable income</td><td class="num">${inr(t.taxable)}</td></tr>${row('Tax on income incl. rebate, surcharge and 4% cess', t.tax)}${row('TDS deducted (sum of months)', t.tds)}<tr class="tot"><td>Tax payable / (refundable)</td><td class="num">${inr(t.tax - t.tds)}</td></tr></tbody></table>
         <table class="l-table" style="margin-top:.6rem"><thead><tr><th>Month</th><th class="num">Salary paid</th><th class="num">TDS</th></tr></thead><tbody>${t.d.map(x => `<tr><td>${monthLabel(x.m)}</td><td class="num">${inr((x.r.earned || 0) + (x.r.extra || 0))}</td><td class="num">${inr((x.r.tds || 0) + (x.r.tdsX || 0))}</td></tr>`).join('')}</tbody></table>
         <table class="l-table" style="margin-top:.6rem"><thead><tr><th>Quarter</th><th class="num">TDS deducted</th></tr></thead><tbody>${q.map((v, i) => row('Q' + (i + 1), v)).join('')}</tbody></table>
@@ -4421,9 +4570,9 @@
     function tdsCsv(fy, qn) {
       if (!isHR() || !modOn('tds')) return;
       const f = tdsForms(fy), months = fyMonths(fy).slice((qn - 1) * 3, qn * 3), st = getStat(), L = [[f[1] + ' data sheet', 'FY ' + fy, 'Q' + qn].map(csvq).join(',')];
-      L.push(['Annexure I â€“ month-wise deductee detail'].map(csvq).join(','), ['Month', 'Emp code', 'Name', 'PAN', 'Salary paid', 'TDS deducted'].map(csvq).join(','));
+      L.push(['Annexure I — month-wise deductee detail'].map(csvq).join(','), ['Month', 'Emp code', 'Name', 'PAN', 'Salary paid', 'TDS deducted'].map(csvq).join(','));
       getEmployees().forEach(e => months.forEach(m => { const run = getPayruns()[m], r = run && (run.rows || []).find(x => x.empId === e.id); if (r && ((r.earned || 0) + (r.extra || 0) > 0 || (r.tds || 0) > 0)) L.push([monthLabel(m), e.empCode || '', e.name, (st[e.id] || {}).pan || '', (r.earned || 0) + (r.extra || 0), (r.tds || 0) + (r.tdsX || 0)].map(csvq).join(',')); }));
-      if (qn === 4) { L.push('', ['Annexure II â€“ annual salary details'].map(csvq).join(','), ['Emp code', 'Name', 'PAN', 'Gross salary', 'Standard deduction', 'Taxable income', 'Tax on income', 'TDS deducted'].map(csvq).join(',')); getEmployees().forEach(e => { const t = taxCert(e.id, fy); if (t.d.length) L.push([e.empCode || '', e.name, (st[e.id] || {}).pan || '', t.gross, t.std, t.taxable, t.tax, t.tds].map(csvq).join(',')); }); }
+      if (qn === 4) { L.push('', ['Annexure II — annual salary details'].map(csvq).join(','), ['Emp code', 'Name', 'PAN', 'Gross salary', 'Standard deduction', 'Taxable income', 'Tax on income', 'TDS deducted'].map(csvq).join(',')); getEmployees().forEach(e => { const t = taxCert(e.id, fy); if (t.d.length) L.push([e.empCode || '', e.name, (st[e.id] || {}).pan || '', t.gross, t.std, t.taxable, t.tax, t.tds].map(csvq).join(',')); }); }
       dl(`${f[1].replace(' ', '')}_${fy}_Q${qn}.csv`, L.join('\n'));
     }
     function tdsPanel() {
@@ -4431,7 +4580,7 @@
       if (!tdsEmp || !emps.some(e => e.id === tdsEmp)) tdsEmp = emps[0] ? emps[0].id : '';
       const body = `<div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin-bottom:.8rem">${mySel('mFY', fyList(), modFY, 'setModFY(this.value)')}<select id="tdsEmp" onchange="tdsEmp=this.value" style="${mi}">${empOpts(emps, tdsEmp)}</select><button class="btn btn-primary" onclick="viewTaxCert(document.getElementById('tdsEmp').value,modFY)">${f[0]} working</button></div>
         <div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center">${[1, 2, 3, 4].map(q => `<button class="btn btn-secondary" onclick="tdsCsv(modFY,${q})">${f[1]} Q${q} data (CSV)</button>`).join('')}</div>
-        <div class="dept-tag" style="line-height:1.6;margin-top:.7rem">Return due dates: Q1 31 Jul Â· Q2 31 Oct Â· Q3 31 Jan Â· Q4 31 May. The app prepares the data; the return file (FVU) is created and filed through the NSDL / TIN utility, and the final certificate is downloaded from TRACES. Add PAN for every employee under Statutory details.</div>`;
+        <div class="dept-tag" style="line-height:1.6;margin-top:.7rem">Return due dates: Q1 31 Jul · Q2 31 Oct · Q3 31 Jan · Q4 31 May. The app prepares the data; the return file (FVU) is created and filed through the NSDL / TIN utility, and the final certificate is downloaded from TRACES. Add PAN for every employee under Statutory details.</div>`;
       return pcard('Form 16 / 130 and 24Q / 138', body);
     }
 
@@ -4446,11 +4595,11 @@
     function renderMyStat() {
       const id = session && session.empId; if (!id) return '';
       const parts = [], mine = getPayouts().filter(p => p.empId === id && modOn(p.kind)), ot = modOn('ot') ? getOT().filter(o => o.empId === id) : [];
-      if (mine.length || ot.length) parts.push(pcard('Bonus, encashment and overtime', `<div class="table-wrap"><table><thead><tr><th>Type</th><th>Pay month</th><th>Details</th><th>Amount</th></tr></thead><tbody>${mine.map(p => `<tr><td>${{ bonus: 'Statutory bonus', encash: 'Leave encashment', arrears: 'Salary arrears' }[p.kind]}</td><td>${monthLabel(p.month)}</td><td class="dept-tag">${esc(p.note || '')}${p.days ? ' Â· ' + p.days + ' day(s)' : ''}</td><td>${inr(p.amount)}</td></tr>`).join('')}${ot.map(o => `<tr><td>Overtime</td><td>${monthLabel(o.date.slice(0, 7))}</td><td class="dept-tag">${formatDate(o.date)} Â· ${o.hours} h at 2x</td><td>${inr(o.hours * otRate(basicOf(id)))}</td></tr>`).join('')}</tbody></table></div>`));
-      if (modOn('tds')) { const ys = fyList().filter(fy => fyData(id, fy).length); parts.push(pcard('Salary TDS certificate', ys.length ? ys.map(fy => `<button class="btn btn-secondary" style="margin:.2rem" onclick="viewTaxCert('${id}','${fy}')">${tdsForms(fy)[0]} working â€“ FY ${fy}</button>`).join('') : '<div class="empty-state">No processed payroll yet.</div>')); }
-      if (modOn('f12bb')) { const fy = declFY(), d = getDecls()[id + '|' + fy]; parts.push(pcard('Form ' + (+fy.slice(0, 4) >= 2026 ? '124' : '12BB') + ' â€“ tax declaration (FY ' + fy + ')', `<div style="line-height:1.7;margin-bottom:.7rem">${d ? `Regime: <strong>${d.regime === 'old' ? 'Old' : 'New'}</strong> Â· Status: <strong>${d.status}</strong>` : 'No declaration submitted. TDS is deducted under the new regime.'}</div><button class="btn btn-primary" onclick="openDecl('${id}')">${d ? 'Update declaration' : 'Submit declaration'}</button>`)); }
+      if (mine.length || ot.length) parts.push(pcard('Bonus, encashment and overtime', `<div class="table-wrap"><table><thead><tr><th>Type</th><th>Pay month</th><th>Details</th><th>Amount</th></tr></thead><tbody>${mine.map(p => `<tr><td>${{ bonus: 'Statutory bonus', encash: 'Leave encashment', arrears: 'Salary arrears' }[p.kind]}</td><td>${monthLabel(p.month)}</td><td class="dept-tag">${esc(p.note || '')}${p.days ? ' · ' + p.days + ' day(s)' : ''}</td><td>${inr(p.amount)}</td></tr>`).join('')}${ot.map(o => `<tr><td>Overtime</td><td>${monthLabel(o.date.slice(0, 7))}</td><td class="dept-tag">${formatDate(o.date)} · ${o.hours} h at 2x</td><td>${inr(o.hours * otRate(basicOf(id)))}</td></tr>`).join('')}</tbody></table></div>`));
+      if (modOn('tds')) { const ys = fyList().filter(fy => fyData(id, fy).length); parts.push(pcard('Salary TDS certificate', ys.length ? ys.map(fy => `<button class="btn btn-secondary" style="margin:.2rem" onclick="viewTaxCert('${id}','${fy}')">${tdsForms(fy)[0]} working — FY ${fy}</button>`).join('') : '<div class="empty-state">No processed payroll yet.</div>')); }
+      if (modOn('f12bb')) { const fy = declFY(), d = getDecls()[id + '|' + fy]; parts.push(pcard('Form ' + (+fy.slice(0, 4) >= 2026 ? '124' : '12BB') + ' — tax declaration (FY ' + fy + ')', `<div style="line-height:1.7;margin-bottom:.7rem">${d ? `Regime: <strong>${d.regime === 'old' ? 'Old' : 'New'}</strong> · Status: <strong>${d.status}</strong>` : 'No declaration submitted. TDS is deducted under the new regime.'}</div><button class="btn btn-primary" onclick="openDecl('${id}')">${d ? 'Update declaration' : 'Submit declaration'}</button>`)); }
       const ff = modOn('fnf') ? getFnf().filter(f => f.empId === id) : [];
-      if (ff.length) parts.push(pcard('Full & Final settlement', ff.map(f => `<button class="btn btn-secondary" style="margin:.2rem" onclick="fnfPrint('${f.id}')">Statement â€“ ${formatDate(f.lwd)}</button>`).join('')));
+      if (ff.length) parts.push(pcard('Full & Final settlement', ff.map(f => `<button class="btn btn-secondary" style="margin:.2rem" onclick="fnfPrint('${f.id}')">Statement — ${formatDate(f.lwd)}</button>`).join('')));
       return parts.join('') || '<div class="card"><div class="card-body"><div class="empty-state">Nothing to show yet.</div></div></div>';
     }
 
@@ -4479,10 +4628,10 @@
     function arrearsPanel() {
       const emps = getEmployees().filter(e => e.status !== 'inactive'), cur = arrSel || (emps[0] && emps[0].id) || '', lastRun = Object.keys(getPayruns()).sort().pop() || modMonth;
       const list = getPayouts().filter(p => p.kind === 'arrears').slice(0, 20);
-      const body = `<div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin-bottom:.8rem"><select id="arEmp" onchange="arrSel=this.value;arrFill()" style="${mi}">${empOpts(emps, cur)}</select><span class="dept-tag">Old CTC â‚¹</span><input id="arOld" type="number" min="0" oninput="arrRefresh()" style="${mi};width:110px" /><span class="dept-tag">New CTC â‚¹</span><input id="arNew" type="number" min="0" value="${getCTCs()[cur] || ''}" oninput="arrRefresh()" style="${mi};width:110px" /><span class="dept-tag">From</span><input id="arFrom" type="month" onchange="arrRefresh()" style="${mi}" /><span class="dept-tag">To</span><input id="arTo" type="month" value="${lastRun}" onchange="arrRefresh()" style="${mi}" /><span class="dept-tag">Pay in</span><input type="month" value="${modMonth}" onchange="setModMonth(this.value)" style="${mi}" /><button class="btn btn-primary" onclick="addArrears()">Add to payroll</button></div>
+      const body = `<div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin-bottom:.8rem"><select id="arEmp" onchange="arrSel=this.value;arrFill()" style="${mi}">${empOpts(emps, cur)}</select><span class="dept-tag">Old CTC ₹</span><input id="arOld" type="number" min="0" oninput="arrRefresh()" style="${mi};width:110px" /><span class="dept-tag">New CTC ₹</span><input id="arNew" type="number" min="0" value="${getCTCs()[cur] || ''}" oninput="arrRefresh()" style="${mi};width:110px" /><span class="dept-tag">From</span><input id="arFrom" type="month" onchange="arrRefresh()" style="${mi}" /><span class="dept-tag">To</span><input id="arTo" type="month" value="${lastRun}" onchange="arrRefresh()" style="${mi}" /><span class="dept-tag">Pay in</span><input type="month" value="${modMonth}" onchange="setModMonth(this.value)" style="${mi}" /><button class="btn btn-primary" onclick="addArrears()">Add to payroll</button></div>
         <div class="dept-tag" style="line-height:1.6;margin-bottom:.6rem">First update the employee's CTC to the new amount, then enter the old CTC here. The difference is worked out for each processed month in the range, in proportion to the days paid. Relief for arrears on tax (Section 89 type) is not calculated.</div>
         <div id="arOut"><div class="dept-tag">Enter old and new annual CTC and the month range.</div></div>
-        ${list.length ? `<div class="table-wrap" style="margin-top:1rem"><table><thead><tr><th>Employee</th><th>Period</th><th>Arrears</th><th>PF / ESI</th><th>Pay month</th><th></th></tr></thead><tbody>${list.map(p => `<tr><td>${empCell(findEmployee(p.empId))}</td><td class="dept-tag">${monthLabel(p.from)} â€“ ${monthLabel(p.to)}</td><td>${inr(p.amount)}</td><td>${inr(p.ded || 0)}</td><td>${monthLabel(p.month)}</td><td><button class="btn btn-delete" onclick="delPayout('${p.id}')">Delete</button></td></tr>`).join('')}</tbody></table></div>` : ''}`;
+        ${list.length ? `<div class="table-wrap" style="margin-top:1rem"><table><thead><tr><th>Employee</th><th>Period</th><th>Arrears</th><th>PF / ESI</th><th>Pay month</th><th></th></tr></thead><tbody>${list.map(p => `<tr><td>${empCell(findEmployee(p.empId))}</td><td class="dept-tag">${monthLabel(p.from)} — ${monthLabel(p.to)}</td><td>${inr(p.amount)}</td><td>${inr(p.ded || 0)}</td><td>${monthLabel(p.month)}</td><td><button class="btn btn-delete" onclick="delPayout('${p.id}')">Delete</button></td></tr>`).join('')}</tbody></table></div>` : ''}`;
       return pcard('Salary arrears', body);
     }
     function addArrears() {
@@ -4504,7 +4653,7 @@
       document.getElementById('declForm').reset(); document.getElementById('dcEmp').innerHTML = empOpts(emps, empId); document.getElementById('dcFy').value = fy;
       const d = getDecls()[(empId || (emps[0] && emps[0].id)) + '|' + fy];
       if (d) { const s = (id, v) => { document.getElementById(id).value = v ?? ''; }; s('dcReg', d.regime); s('dcRent', d.rent); s('dcCity', d.metro ? 'metro' : 'other'); s('dcLandlord', d.landlord); s('dcLPan', d.lpan); s('dcRel', d.rel || 'Not related'); s('dcInv', d.inv); s('dcMed', d.med); s('dcNps', d.nps); s('dcHome', d.home); }
-      declToggle(); document.getElementById('declTitle').textContent = 'Tax declaration â€“ Form ' + (+fy.slice(0, 4) >= 2026 ? '124' : '12BB') + ' (FY ' + fy + ')'; openModal('declModal');
+      declToggle(); document.getElementById('declTitle').textContent = 'Tax declaration — Form ' + (+fy.slice(0, 4) >= 2026 ? '124' : '12BB') + ' (FY ' + fy + ')'; openModal('declModal');
     }
     function saveDecl(ev) {
       ev.preventDefault(); if (!modOn('f12bb')) return;
@@ -4514,7 +4663,7 @@
       if (regime === 'old') {
         Object.assign(d, { rent: n('dcRent'), metro: g('dcCity') === 'metro', landlord: g('dcLandlord'), lpan: g('dcLPan').toUpperCase(), rel: g('dcRel'), inv: n('dcInv'), med: n('dcMed'), nps: n('dcNps'), home: n('dcHome') });
         if (d.rent > 0 && !d.landlord) { showToast('Enter the landlord name', 'error'); return; }
-        if (d.rent * 12 > 100000 && !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(d.lpan)) { showToast('Landlord PAN is needed when rent is over â‚¹1 lakh a year', 'error'); return; }
+        if (d.rent * 12 > 100000 && !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(d.lpan)) { showToast('Landlord PAN is needed when rent is over ₹1 lakh a year', 'error'); return; }
       }
       const all = getDecls(); all[empId + '|' + fy] = d; save(STORAGE_KEYS.decl, all);
       addActivity(`Tax declaration ${isHR() ? 'recorded' : 'submitted'} by <strong>${esc(findEmployee(empId)?.name)}</strong> (${regime} regime)`, 'blue'); showToast(isHR() ? 'Declaration saved and approved' : 'Declaration sent to HR', 'success'); closeModal('declModal'); refreshCurrentPage();
@@ -4523,7 +4672,7 @@
     function declPanel() {
       const list = Object.entries(getDecls()).sort((a, b) => b[1].at.localeCompare(a[1].at)), emps = getEmployees().filter(e => e.status !== 'inactive');
       const body = `<div style="margin-bottom:.8rem"><button class="btn btn-primary" onclick="openDecl()">+ Enter declaration</button> <span class="dept-tag">New regime is used for everyone until an old-regime declaration is approved.</span></div>
-        ${list.length ? `<div class="table-wrap"><table><thead><tr><th>Employee</th><th>Year</th><th>Regime</th><th>Rent / month</th><th>Investments</th><th>Health ins.</th><th>NPS</th><th>Home loan</th><th>Status</th><th></th></tr></thead><tbody>${list.map(([k, d]) => `<tr><td>${empCell(findEmployee(d.empId))}</td><td>${d.fy}</td><td>${d.regime === 'old' ? 'Old' : 'New'}</td><td>${d.regime === 'old' ? inr(d.rent || 0) : 'â€”'}</td><td>${d.regime === 'old' ? inr(d.inv || 0) : 'â€”'}</td><td>${d.regime === 'old' ? inr(d.med || 0) : 'â€”'}</td><td>${d.regime === 'old' ? inr(d.nps || 0) : 'â€”'}</td><td>${d.regime === 'old' ? inr(d.home || 0) : 'â€”'}</td><td><span class="badge ${d.status === 'approved' ? 'approved' : d.status === 'rejected' ? 'rejected' : 'pending'}">${d.status[0].toUpperCase() + d.status.slice(1)}</span></td><td><div class="btn-group" style="flex-wrap:nowrap">${d.status === 'submitted' ? `<button class="btn btn-approve" onclick="declDecide('${k}','approved')">Approve</button><button class="btn btn-reject" onclick="declDecide('${k}','rejected')">Reject</button>` : ''}<button class="btn btn-secondary" onclick="openDecl('${d.empId}','${d.fy}')">Edit</button></div></td></tr>`).join('')}</tbody></table></div>` : '<div class="empty-state">No declarations yet.</div>'}`;
+        ${list.length ? `<div class="table-wrap"><table><thead><tr><th>Employee</th><th>Year</th><th>Regime</th><th>Rent / month</th><th>Investments</th><th>Health ins.</th><th>NPS</th><th>Home loan</th><th>Status</th><th></th></tr></thead><tbody>${list.map(([k, d]) => `<tr><td>${empCell(findEmployee(d.empId))}</td><td>${d.fy}</td><td>${d.regime === 'old' ? 'Old' : 'New'}</td><td>${d.regime === 'old' ? inr(d.rent || 0) : '—'}</td><td>${d.regime === 'old' ? inr(d.inv || 0) : '—'}</td><td>${d.regime === 'old' ? inr(d.med || 0) : '—'}</td><td>${d.regime === 'old' ? inr(d.nps || 0) : '—'}</td><td>${d.regime === 'old' ? inr(d.home || 0) : '—'}</td><td><span class="badge ${d.status === 'approved' ? 'approved' : d.status === 'rejected' ? 'rejected' : 'pending'}">${d.status[0].toUpperCase() + d.status.slice(1)}</span></td><td><div class="btn-group" style="flex-wrap:nowrap">${d.status === 'submitted' ? `<button class="btn btn-approve" onclick="declDecide('${k}','approved')">Approve</button><button class="btn btn-reject" onclick="declDecide('${k}','rejected')">Reject</button>` : ''}<button class="btn btn-secondary" onclick="openDecl('${d.empId}','${d.fy}')">Edit</button></div></td></tr>`).join('')}</tbody></table></div>` : '<div class="empty-state">No declarations yet.</div>'}`;
       return pcard('Form 124 (earlier 12BB) declarations', body);
     }
 
@@ -4545,7 +4694,7 @@
     }
     function viewMuster(month) {
       if (!isHR() || !modOn('registers')) return; const m = musterData(month);
-      showDoc('Muster roll', `<p style="text-align:center;font-weight:700;margin:.4rem 0">MUSTER ROLL (ATTENDANCE REGISTER) â€“ ${monthLabel(month).toUpperCase()}</p><div style="overflow-x:auto"><table class="l-table" style="font-size:9px"><thead><tr><th>#</th><th>Employee</th>${Array.from({ length: m.dim }, (_, i) => `<th>${i + 1}</th>`).join('')}<th>Pres.</th><th>Leave</th><th>Abs.</th><th>Off</th></tr></thead><tbody>${m.rows.map((r, i) => `<tr><td>${i + 1}</td><td style="white-space:nowrap">${esc(r.e.name)}</td>${r.codes.map(c => `<td>${c}</td>`).join('')}<td>${r.present}</td><td>${r.leave}</td><td>${r.absent}</td><td>${r.off}</td></tr>`).join('')}</tbody></table></div><p class="l-note">P present Â· A absent Â· HD half day Â· L leave Â· OD on duty Â· WO weekly off Â· H holiday Â· âˆ’ not marked</p>`);
+      showDoc('Muster roll', `<p style="text-align:center;font-weight:700;margin:.4rem 0">MUSTER ROLL (ATTENDANCE REGISTER) — ${monthLabel(month).toUpperCase()}</p><div style="overflow-x:auto"><table class="l-table" style="font-size:9px"><thead><tr><th>#</th><th>Employee</th>${Array.from({ length: m.dim }, (_, i) => `<th>${i + 1}</th>`).join('')}<th>Pres.</th><th>Leave</th><th>Abs.</th><th>Off</th></tr></thead><tbody>${m.rows.map((r, i) => `<tr><td>${i + 1}</td><td style="white-space:nowrap">${esc(r.e.name)}</td>${r.codes.map(c => `<td>${c}</td>`).join('')}<td>${r.present}</td><td>${r.leave}</td><td>${r.absent}</td><td>${r.off}</td></tr>`).join('')}</tbody></table></div><p class="l-note">P present · A absent · HD half day · L leave · OD on duty · WO weekly off · H holiday · âˆ' not marked</p>`);
     }
     function musterCsv(month) {
       if (!isHR() || !modOn('registers')) return; const m = musterData(month);
@@ -4559,7 +4708,7 @@
       if (!isHR() || !modOn('registers')) return; const w = wageData(month);
       if (!w) { showToast('Payroll for ' + monthLabel(month) + ' is not processed yet', 'error'); return; }
       const t = k => w.reduce((s, x) => s + k(x), 0);
-      showDoc('Wage register', `<p style="text-align:center;font-weight:700;margin:.4rem 0">WAGE REGISTER â€“ ${monthLabel(month).toUpperCase()}</p><div style="overflow-x:auto"><table class="l-table" style="font-size:9px"><thead><tr><th>#</th><th>Employee</th><th>Days paid</th><th>Basic</th><th>HRA</th><th>Other allow.</th><th>Extras</th><th>Gross</th><th>PF</th><th>ESI</th><th>PT</th><th>TDS</th><th>Other</th><th>Net pay</th><th>Signature</th></tr></thead><tbody>${w.map((x, i) => `<tr><td>${i + 1}</td><td style="white-space:nowrap">${esc(x.e.name || x.r.name)}</td><td>${x.days}</td><td>${inr(x.r.basic)}</td><td>${inr(x.r.hra)}</td><td>${inr((x.r.conv || 0) + (x.r.special || 0))}</td><td>${inr(x.r.extra || 0)}</td><td>${inr(x.gross)}</td><td>${inr(x.r.eeEpf || 0)}</td><td>${inr(x.r.esiEe || 0)}</td><td>${inr(x.r.pt || 0)}</td><td>${inr((x.r.tds || 0) + (x.r.tdsX || 0))}</td><td>${inr((x.r.lwfEe || 0) + (x.r.exArrDed || 0))}</td><td>${inr(x.r.net)}</td><td style="min-width:60px"></td></tr>`).join('')}<tr class="tot"><td></td><td>Total</td><td></td><td>${inr(t(x => x.r.basic))}</td><td>${inr(t(x => x.r.hra))}</td><td>${inr(t(x => (x.r.conv || 0) + (x.r.special || 0)))}</td><td>${inr(t(x => x.r.extra || 0))}</td><td>${inr(t(x => x.gross))}</td><td>${inr(t(x => x.r.eeEpf || 0))}</td><td>${inr(t(x => x.r.esiEe || 0))}</td><td>${inr(t(x => x.r.pt || 0))}</td><td>${inr(t(x => (x.r.tds || 0) + (x.r.tdsX || 0)))}</td><td>${inr(t(x => (x.r.lwfEe || 0) + (x.r.exArrDed || 0)))}</td><td>${inr(t(x => x.r.net))}</td><td></td></tr></tbody></table></div><p class="l-note">Computed from the processed payroll of the month. Basic, HRA and allowances are full-month amounts; Gross is the amount earned after loss of pay plus extras.</p>`);
+      showDoc('Wage register', `<p style="text-align:center;font-weight:700;margin:.4rem 0">WAGE REGISTER — ${monthLabel(month).toUpperCase()}</p><div style="overflow-x:auto"><table class="l-table" style="font-size:9px"><thead><tr><th>#</th><th>Employee</th><th>Days paid</th><th>Basic</th><th>HRA</th><th>Other allow.</th><th>Extras</th><th>Gross</th><th>PF</th><th>ESI</th><th>PT</th><th>TDS</th><th>Other</th><th>Net pay</th><th>Signature</th></tr></thead><tbody>${w.map((x, i) => `<tr><td>${i + 1}</td><td style="white-space:nowrap">${esc(x.e.name || x.r.name)}</td><td>${x.days}</td><td>${inr(x.r.basic)}</td><td>${inr(x.r.hra)}</td><td>${inr((x.r.conv || 0) + (x.r.special || 0))}</td><td>${inr(x.r.extra || 0)}</td><td>${inr(x.gross)}</td><td>${inr(x.r.eeEpf || 0)}</td><td>${inr(x.r.esiEe || 0)}</td><td>${inr(x.r.pt || 0)}</td><td>${inr((x.r.tds || 0) + (x.r.tdsX || 0))}</td><td>${inr((x.r.lwfEe || 0) + (x.r.exArrDed || 0))}</td><td>${inr(x.r.net)}</td><td style="min-width:60px"></td></tr>`).join('')}<tr class="tot"><td></td><td>Total</td><td></td><td>${inr(t(x => x.r.basic))}</td><td>${inr(t(x => x.r.hra))}</td><td>${inr(t(x => (x.r.conv || 0) + (x.r.special || 0)))}</td><td>${inr(t(x => x.r.extra || 0))}</td><td>${inr(t(x => x.gross))}</td><td>${inr(t(x => x.r.eeEpf || 0))}</td><td>${inr(t(x => x.r.esiEe || 0))}</td><td>${inr(t(x => x.r.pt || 0))}</td><td>${inr(t(x => (x.r.tds || 0) + (x.r.tdsX || 0)))}</td><td>${inr(t(x => (x.r.lwfEe || 0) + (x.r.exArrDed || 0)))}</td><td>${inr(t(x => x.r.net))}</td><td></td></tr></tbody></table></div><p class="l-note">Computed from the processed payroll of the month. Basic, HRA and allowances are full-month amounts; Gross is the amount earned after loss of pay plus extras.</p>`);
     }
     function wageCsv(month) {
       if (!isHR() || !modOn('registers')) return; const w = wageData(month); if (!w) { showToast('Payroll for ' + monthLabel(month) + ' is not processed yet', 'error'); return; }

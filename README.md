@@ -1,102 +1,88 @@
-# R & A Associates HRMS – Tech Stack & Architecture
+# HRMS — Enterprise Workforce & Biometric Management Platform
 
-A modernized, modular Human Resource Management System (HRMS) with facial recognition attendance, employee self-service (ESS), leave tracking, and payroll compliance.
+**HRMS** is a full-stack, enterprise-grade Human Resource Management System built with **Next.js 15**, **React 19**, and **TypeScript**, engineered for modern organizations seeking an all-in-one workforce intelligence hub.
+
+Featuring strict **Role-Based Access Control (RBAC)**, the platform delivers zero-flash, personalized experiences for HR Administrators and Employee Self-Service portals. Key capabilities include:
+
+- **AI Biometric Attendance & Geofencing**: Browser-based webcam face recognition with anti-spoofing HUD, live selfie matching, and GPS radius verification.
+- **Workforce Directory & Lifecycle**: Complete employee record management with photo upload, profile enrollment, and one-click CSV/Excel import & export.
+- **Payroll & Statutory Compliance**: Automated salary calculations, tax breakdowns (PF, ESI, TDS, PT), and printable salary slips.
+- **Leave & Permission Workflows**: Real-time request submissions, multi-tier manager approvals, and automated balance tracking.
+- **Service & Performance Management**: Employee tenure tracking, performance appraisals, goal management, digital HR letters, and resignation handover workflows.
+- **Portable Persistence**: Built-in JSON database architecture (`data.json`) enabling zero-configuration deployment and offline portability.
+
+Designed with an executive slate UI/UX, responsive layouts, and sub-second interactions, HRMS delivers a consumer-grade experience for enterprise operations.
 
 ---
 
-## 🏗️ Architecture Overview
+## 🏗️ Architecture & Modules
 
-The codebase has been refactored from a single monolithic file into a **clean, decoupled, production-ready tech stack** while preserving 100% of the UI design, styles, biometrics, and business logic.
-
-```
+```text
 HR/
-├── client/                     # Clean, Modular Frontend
-│   ├── css/                    # Modular Stylesheets
-│   │   ├── variables.css       # Design tokens, color palette, typography
-│   │   ├── layout.css          # Shell, sidebar, topbar, responsive grid
-│   │   ├── components.css      # Cards, tables, forms, buttons, badges
-│   │   ├── modals.css          # Responsive popups & camera modal
-│   │   └── style.css           # Master aggregated stylesheet
-│   ├── js/                     # Modular JavaScript
-│   │   ├── config.js           # Storage keys, avatars, uid generator
-│   │   ├── storage.js          # Persistence layer & /api/state sync
-│   │   ├── faceApi.js          # Face-api detection & verification service
-│   │   ├── biometrics.js       # WebAuthn fingerprint & mobile biometrics
-│   │   └── app.js              # Application router & runtime
-│   └── index.html              # Clean 600-line shell (was ~5,900 lines)
-│
-├── server/                     # Backend API & Server
-│   ├── src/
-│   │   ├── config.js           # Environment & path configs
-│   │   ├── db.js               # Persistence manager with atomic writes
-│   │   ├── routes/
-│   │   │   ├── state.routes.js # REST state synchronization
-│   │   │   └── api.routes.js   # API endpoints
-│   │   └── app.js              # HTTP request dispatcher & CORS handler
-│   └── server.js               # Express-compatible server entry
-│
-├── public/                     # Static Public Assets
-│   ├── faceapi/                # Neural net weights & face-api.js library
-│   │   ├── model/              # Tiny Face Detector, Landmarks, Recognition
-│   │   └── face-api.js
-│   ├── manifest.webmanifest    # PWA configuration
-│   └── sw.js                   # Service worker for offline caching
-│
-├── nextjs/                     # Next.js Fullstack Option (App Router)
+├── nextjs/                             # Modern Next.js 15 App Router Fullstack Application
 │   ├── app/
-│   │   ├── layout.jsx          # Root layout with fonts & sidebar
-│   │   ├── page.jsx            # Interactive React Dashboard
-│   │   ├── employees/page.jsx  # Employee Directory
-│   │   ├── attendance/page.jsx # Attendance Logs
-│   │   ├── api/state/route.js  # App Router API endpoint
-│   │   └── globals.css         # Complete HRMS styles
-│   ├── components/
-│   │   ├── Sidebar.jsx         # React navigation sidebar
-│   │   └── FaceAttendanceModal.jsx # Client-only face-api biometric modal
-│   └── package.json            # Next.js dependencies
-│
-├── data/                       # Persistent JSON Database
-│   └── data.json
-│
-├── index.html                  # Legacy fallback file (preserved intact)
-├── server.js                   # Root launcher (delegates to server/server.js)
-└── package.json                # Root package configuration
+│   │   ├── page.tsx                    # Executive Intelligence & Self-Service Dashboard
+│   │   ├── access/page.tsx             # Role & Permission Matrix
+│   │   ├── attendance/page.tsx         # Attendance Roster & Daily Logs
+│   │   ├── departments/page.tsx        # Department & Team Management
+│   │   ├── employees/page.tsx          # Employee Directory & Profile Cards
+│   │   ├── leaves/page.tsx             # Leave Applications & Approvals
+│   │   ├── letters/page.tsx            # Digital HR Letter Generator
+│   │   ├── login/page.tsx              # Secure Dual-Role Authentication
+│   │   ├── payroll/page.tsx            # Compensation & Salary Slips
+│   │   ├── performance/page.tsx        # Goal Tracking & KPI Appraisals
+│   │   ├── permissions/page.tsx        # Gate Passes & Hourly Permissions
+│   │   ├── recruitment/page.tsx        # Job Postings & Candidate Pipeline
+│   │   ├── resignations/page.tsx       # Separation & Relieving Lifecycle
+│   │   ├── service/page.tsx            # Service Books & Career History
+│   │   ├── settings/page.tsx           # Organization Configuration
+│   │   ├── statmods/page.tsx           # Statutory Compliance Modules (PF/ESI/TDS)
+│   │   └── api/                        # 17 Enterprise REST Endpoints
+│   ├── components/                     # Reusable UI & Modal Components
+│   │   ├── FaceAttendanceModal.tsx     # Biometric Camera & Anti-Spoofing Modal
+│   │   ├── DashboardLayout.tsx         # Responsive Sidebar & Topbar Shell
+│   │   ├── WeeklyTrendChart.tsx        # 7-Day Workforce Analytics Chart
+│   │   ├── Avatar.tsx                  # Dynamic Photo / Initials Fallback
+│   │   └── AdminGuard.tsx              # Role-Based Route Shield
+│   ├── lib/
+│   │   └── AuthContext.tsx             # Zero-Flash Synchronous Auth Context
+│   └── data/                           # Atomic JSON Persistence
+│       └── data.json
+├── client/                             # Zero-Dependency Modular HTML5 Client
+├── server/                             # Express-Compatible Microservice Server
+└── public/                             # Public Assets & Neural Network Models
 ```
 
 ---
 
-## 🚀 How to Run
+## 🚀 Getting Started
 
-### Standard Modular Server (Recommended - Zero Dependencies)
-Run directly with Node.js:
+### Next.js Production Mode (Recommended)
 ```bash
+cd nextjs
+npm install
+npm run build
 npm start
-# or
-node server.js
 ```
-Then visit **`http://localhost:3000`** in your browser.
+Visit [http://localhost:3000](http://localhost:3000).
 
-### Next.js Mode
-If you prefer running the Next.js React App Router version:
+### Next.js Development Mode
 ```bash
 cd nextjs
 npm install
 npm run dev
 ```
-Then visit **`http://localhost:3000`**.
 
 ---
 
-## 🔒 Biometrics & Face Recognition
-* Pre-trained neural network weights are hosted statically under `/public/faceapi/model/`:
-  * **Tiny Face Detector**: Fast client-side face boundary box detection.
-  * **68 Facial Landmarks**: Face alignment and pose normalization.
-  * **Face Recognition**: 128-dimensional embedding extraction for 1:1 facial identity matching.
-* Works seamlessly in modern browsers with WebGL/Canvas acceleration.
-* In Next.js, the `FaceAttendanceModal` runs strictly on the client (`'use client'`) to prevent server-side rendering conflicts.
+## 🔐 Credentials & Default Logins
+
+| Role | Username | Password | Access Level |
+| :--- | :--- | :--- | :--- |
+| **HR Administrator** | `admin` | `admin123` | Full Administrative Privileges & All 15 Modules |
+| **Employee Self-Service** | `EMP001` | `emp123` | Personal Attendance, Leaves, Payslips & Performance |
 
 ---
 
-## 💾 Database & State Persistence
-* All HRMS data (employees, leaves, attendance punches, payroll runs, statutory configs) is managed through `server/src/db.js`.
-* State is persisted using **atomic writes** (`data.json.tmp` -> `data.json`), preventing file corruption during power outages or unexpected crashes.
+## 🛡️ License
+Private & Proprietary. All rights reserved.

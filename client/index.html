@@ -10,7 +10,7 @@
   <link rel="apple-touch-icon" href="/icon-192.png">
   <link rel="icon" type="image/png" href="/icon-192.png">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>HRMS â€“ Human Resource Management System</title>
+  <title>HRMS — Human Resource Management System</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -171,7 +171,7 @@
     <div class="content" id="content"></div>
 
     <footer class="footer">
-      Â© 2026 HRMS Â· Data stored in browser localStorage Â· Clear data in Settings
+      © 2026 HRMS · Data stored in browser localStorage · Clear data in Settings
     </footer>
   </div>
 
@@ -369,11 +369,11 @@
           <div class="form-row"><div class="form-group"><label>Employee</label><select id="dcEmp"></select></div><div class="form-group"><label>Financial year</label><input type="text" id="dcFy" readonly /></div></div>
           <div class="form-group"><label>Tax regime for TDS *</label><select id="dcReg" onchange="declToggle()"><option value="new">New regime (default, no deductions)</option><option value="old">Old regime (with the details below)</option></select></div>
           <div id="dcOld" style="display:none">
-            <div class="form-row"><div class="form-group"><label>Rent paid per month â‚¹</label><input type="number" id="dcRent" min="0" /></div><div class="form-group"><label>City for HRA</label><select id="dcCity"><option value="metro">Metro list incl. Hyderabad (50%)</option><option value="other">Other city (40%)</option></select></div></div>
-            <div class="form-row"><div class="form-group"><label>Landlord name</label><input type="text" id="dcLandlord" /></div><div class="form-group"><label>Landlord PAN (needed if rent over â‚¹1 lakh a year)</label><input type="text" id="dcLPan" maxlength="10" style="text-transform:uppercase" /></div></div>
+            <div class="form-row"><div class="form-group"><label>Rent paid per month ₹</label><input type="number" id="dcRent" min="0" /></div><div class="form-group"><label>City for HRA</label><select id="dcCity"><option value="metro">Metro list incl. Hyderabad (50%)</option><option value="other">Other city (40%)</option></select></div></div>
+            <div class="form-row"><div class="form-group"><label>Landlord name</label><input type="text" id="dcLandlord" /></div><div class="form-group"><label>Landlord PAN (needed if rent over ₹1 lakh a year)</label><input type="text" id="dcLPan" maxlength="10" style="text-transform:uppercase" /></div></div>
             <div class="form-group"><label>Relationship with landlord</label><select id="dcRel"><option>Not related</option><option>Spouse</option><option>Parent</option><option>Child</option><option>Other relative</option></select></div>
-            <div class="form-row"><div class="form-group"><label>Investments (PF excluded) â‚¹ / year</label><input type="number" id="dcInv" min="0" /></div><div class="form-group"><label>Health insurance â‚¹ / year</label><input type="number" id="dcMed" min="0" /></div></div>
-            <div class="form-row"><div class="form-group"><label>Extra NPS â‚¹ / year (max 50,000)</label><input type="number" id="dcNps" min="0" /></div><div class="form-group"><label>Home-loan interest â‚¹ / year (max 2,00,000)</label><input type="number" id="dcHome" min="0" /></div></div>
+            <div class="form-row"><div class="form-group"><label>Investments (PF excluded) ₹ / year</label><input type="number" id="dcInv" min="0" /></div><div class="form-group"><label>Health insurance ₹ / year</label><input type="number" id="dcMed" min="0" /></div></div>
+            <div class="form-row"><div class="form-group"><label>Extra NPS ₹ / year (max 50,000)</label><input type="number" id="dcNps" min="0" /></div><div class="form-group"><label>Home-loan interest ₹ / year (max 2,00,000)</label><input type="number" id="dcHome" min="0" /></div></div>
           </div>
           <div class="dept-tag" style="line-height:1.6">I declare the details are true. Proofs may be asked before the year end, and TDS is adjusted on the final months if they are not given.</div>
         </div>
@@ -579,7 +579,7 @@
             <div class="form-group"><label>Date of Joining *</label><input type="date" id="apptDoj" required /></div>
             <div class="form-group"><label>Probation (months) *</label><input type="number" id="apptProb" min="0" max="24" value="6" required /></div>
           </div>
-          <div class="form-group"><label>Annual CTC (â‚¹)</label><input type="number" id="apptSalary" min="0" step="10000" placeholder="Leave blank to omit" /></div>
+          <div class="form-group"><label>Annual CTC (₹)</label><input type="number" id="apptSalary" min="0" step="10000" placeholder="Leave blank to omit" /></div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" onclick="closeModal('apptModal')">Cancel</button>
